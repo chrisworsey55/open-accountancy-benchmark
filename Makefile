@@ -4,7 +4,7 @@ setup:
 	uv sync --all-groups --frozen
 
 fmt:
-	uv run ruff format .
+	uv run ruff format --check .
 
 lint:
 	uv run ruff check .
