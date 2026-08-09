@@ -829,6 +829,7 @@ class Approval(VersionedModel):
     action_descriptor: ApprovalActionDescriptor
     rationale: str
     provenance_refs: list[str]
+    status: Literal["requested", "granted", "rejected", "expired"]
 
 
 class Mutation(VersionedModel):

@@ -121,6 +121,7 @@ def test_models_round_trip_through_json() -> None:
             },
             "rationale": "Fictional fixture approval.",
             "provenance_refs": ["doc-fixture-0001"],
+            "status": "requested",
         }
     )
     input_payload = {"kind": "post_journal", "journal_id": "jnl-fixture-0001"}
@@ -143,6 +144,28 @@ def test_models_round_trip_through_json() -> None:
 
     assert Approval.model_validate_json(approval.model_dump_json()) == approval
     assert Action.model_validate_json(action.model_dump_json()) == action
+
+
+def test_approval_requires_a_declared_lifecycle_status() -> None:
+    approval = {
+        "id": "apv-fixture-0002",
+        "kind": "send_external_message",
+        "requested_by": "per-agent",
+        "approver_role": "reviewer",
+        "action_descriptor": {
+            "kind": "send_external_message",
+            "draft_message_id": "msg-fixture-0001",
+        },
+        "rationale": "Fictional fixture approval.",
+        "provenance_refs": ["doc-fixture-0001"],
+    }
+
+    with pytest.raises(ValidationError, match="status"):
+        Approval.model_validate(approval)
+
+    assert (
+        Approval.model_validate({**approval, "status": "granted"}).status == "granted"
+    )
 
 
 def test_workpaper_finalisation_fields_follow_status() -> None:

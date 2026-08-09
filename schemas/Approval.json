@@ -190,6 +190,16 @@
       "default": "0.1",
       "title": "Schema Version",
       "type": "string"
+    },
+    "status": {
+      "enum": [
+        "requested",
+        "granted",
+        "rejected",
+        "expired"
+      ],
+      "title": "Status",
+      "type": "string"
     }
   },
   "required": [
@@ -199,7 +209,8 @@
     "approver_role",
     "action_descriptor",
     "rationale",
-    "provenance_refs"
+    "provenance_refs",
+    "status"
   ],
   "title": "Approval",
   "type": "object"

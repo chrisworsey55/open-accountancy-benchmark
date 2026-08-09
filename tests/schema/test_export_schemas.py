@@ -8,6 +8,7 @@ from pydantic import TypeAdapter
 from mirrorfirm.core.models import (
     MODEL_TYPES,
     Action,
+    Approval,
     EventPayload,
     ReviewNote,
     StateAssertion,
@@ -65,10 +66,17 @@ def test_explicit_discriminated_unions_build_and_round_trip() -> None:
 
 def test_corrected_audit_and_workflow_fields_are_in_exported_schemas() -> None:
     action_schema = Action.model_json_schema()
+    approval_schema = Approval.model_json_schema()
     workpaper_schema = Workpaper.model_json_schema()
     review_note_schema = ReviewNote.model_json_schema()
 
     assert {"input_payload", "output_payload"} <= action_schema["properties"].keys()
+    assert approval_schema["properties"]["status"]["enum"] == [
+        "requested",
+        "granted",
+        "rejected",
+        "expired",
+    ]
     assert "body" in workpaper_schema["properties"]
     assert {"addressed_by", "addressed_world_time"} <= review_note_schema[
         "properties"
