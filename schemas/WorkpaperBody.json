@@ -219,7 +219,7 @@
     },
     "TaxTag": {
       "additionalProperties": false,
-      "description": "A typed UK VAT classification tag.\n\nJurisdiction-pack validation of the code and rate is intentionally deferred to\nWP-04, as required by WP-02.",
+      "description": "A typed UK VAT classification tag.\n\nJurisdiction packs validate the code and rate through their public pack hook;\nthis core model remains deliberately jurisdiction-neutral.",
       "properties": {
         "code": {
           "title": "Code",

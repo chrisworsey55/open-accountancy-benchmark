@@ -11,6 +11,7 @@ import pytest
         "mirrorfirm",
         "mirrorfirm.core",
         "mirrorfirm.core.models",
+        "mirrorfirm.jurisdictions",
         "mirrorfirm.worldgen",
         "mirrorfirm.tools",
         "mirrorfirm.harness",

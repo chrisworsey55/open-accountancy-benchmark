@@ -28,6 +28,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["mirrorfirm"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"jurisdictions" = "jurisdictions"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

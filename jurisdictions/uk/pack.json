@@ -1,0 +1,46 @@
+{
+  "jurisdiction": "uk",
+  "timezone": "Europe/London",
+  "terminology": {
+    "bank_transaction": "bank transaction",
+    "client": "client",
+    "information_request": "information request",
+    "period": "accounting period",
+    "tax": "VAT",
+    "tax_return": "VAT Return"
+  },
+  "legal_forms": [
+    "limited_company",
+    "limited_liability_partnership",
+    "partnership",
+    "sole_trader"
+  ],
+  "chart_of_accounts": [
+    {"code": "1000", "name": "Bank", "type": "asset", "tax_dimension": null, "active": true},
+    {"code": "1100", "name": "Trade debtors", "type": "asset", "tax_dimension": null, "active": true},
+    {"code": "1200", "name": "Director's loan account", "type": "asset", "tax_dimension": null, "active": true},
+    {"code": "2100", "name": "Trade creditors", "type": "liability", "tax_dimension": null, "active": true},
+    {"code": "2201", "name": "VAT output tax", "type": "liability", "tax_dimension": "output_vat", "active": true},
+    {"code": "2202", "name": "VAT input tax", "type": "asset", "tax_dimension": "input_vat", "active": true},
+    {"code": "3000", "name": "Share capital and reserves", "type": "equity", "tax_dimension": null, "active": true},
+    {"code": "4000", "name": "Sales", "type": "income", "tax_dimension": "output_vat", "active": true},
+    {"code": "7502", "name": "Travel and subsistence", "type": "expense", "tax_dimension": "input_vat", "active": true},
+    {"code": "7600", "name": "Client entertainment", "type": "expense", "tax_dimension": "blocked_vat", "active": true}
+  ],
+  "vat_codes": [
+    {"code": "20-std", "rate_bp": 2000, "description": "Standard-rated VAT", "input_vat_recoverable": true},
+    {"code": "5-red", "rate_bp": 500, "description": "Reduced-rated VAT", "input_vat_recoverable": true},
+    {"code": "0-zero", "rate_bp": 0, "description": "Zero-rated VAT", "input_vat_recoverable": true},
+    {"code": "exempt", "rate_bp": 0, "description": "VAT-exempt supply", "input_vat_recoverable": false},
+    {"code": "blocked", "rate_bp": 2000, "description": "Blocked input VAT, such as client entertainment", "input_vat_recoverable": false}
+  ],
+  "vat_control_accounts": {
+    "input": "acc-2202",
+    "output": "acc-2201"
+  },
+  "holiday_dates": [
+    "2025-01-01", "2025-04-18", "2025-04-21", "2025-05-05", "2025-05-26", "2025-08-25", "2025-12-25", "2025-12-26",
+    "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-04", "2026-05-25", "2026-08-31", "2026-12-25", "2026-12-28",
+    "2027-01-01", "2027-03-26", "2027-03-29", "2027-05-03", "2027-05-31", "2027-08-30", "2027-12-27", "2027-12-28"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "jurisdiction": "us",
+  "timezone": "America/New_York",
+  "terminology": {
+    "bank_transaction": "bank transaction",
+    "client": "client",
+    "information_request": "information request",
+    "period": "accounting period",
+    "tax": "sales tax",
+    "tax_return": "sales tax return",
+    "vendor_tax_form": "W-9",
+    "year_end_vendor_report": "1099"
+  },
+  "legal_forms": [
+    "c_corporation",
+    "limited_liability_company",
+    "partnership",
+    "s_corporation",
+    "sole_proprietorship"
+  ],
+  "chart_of_accounts": [
+    {"code": "1000", "name": "Cash at bank", "type": "asset", "tax_dimension": null, "active": true},
+    {"code": "1100", "name": "Accounts receivable", "type": "asset", "tax_dimension": null, "active": true},
+    {"code": "1500", "name": "Equipment", "type": "asset", "tax_dimension": null, "active": true},
+    {"code": "2000", "name": "Accounts payable", "type": "liability", "tax_dimension": null, "active": true},
+    {"code": "2100", "name": "Sales tax payable", "type": "liability", "tax_dimension": "sales_tax", "active": true},
+    {"code": "3000", "name": "Owner's equity", "type": "equity", "tax_dimension": null, "active": true},
+    {"code": "4000", "name": "Sales revenue", "type": "income", "tax_dimension": null, "active": true},
+    {"code": "5000", "name": "Materials and supplies", "type": "expense", "tax_dimension": null, "active": true},
+    {"code": "6100", "name": "Operating expenses", "type": "expense", "tax_dimension": null, "active": true}
+  ],
+  "vat_codes": [],
+  "vat_control_accounts": {},
+  "holiday_dates": [
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-05-26", "2025-06-19", "2025-07-04", "2025-09-01", "2025-10-13", "2025-11-11", "2025-11-27", "2025-12-25",
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-10-12", "2026-11-11", "2026-11-26", "2026-12-25",
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06", "2027-10-11", "2027-11-11", "2027-11-25", "2027-12-24"
+  ]
+}

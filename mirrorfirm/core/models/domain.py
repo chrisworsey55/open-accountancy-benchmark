@@ -240,8 +240,8 @@ class Account(VersionedModel):
 class TaxTag(VersionedModel):
     """A typed UK VAT classification tag.
 
-    Jurisdiction-pack validation of the code and rate is intentionally deferred to
-    WP-04, as required by WP-02.
+    Jurisdiction packs validate the code and rate through their public pack hook;
+    this core model remains deliberately jurisdiction-neutral.
     """
 
     kind: Literal["uk_vat"]
