@@ -97,7 +97,9 @@ class WorldToolEngine:
         self.pack: JurisdictionPack = get_pack(self.manifest.jurisdiction)
         self._tables: dict[str, list[dict[str, Any]]] = {}
         actions = self._list(Action)
-        self._finished = any(action.tool == "finish_episode" for action in actions)
+        self._finished = any(
+            self._is_successful_finish_action(action) for action in actions
+        )
         self._time_override: datetime | None = None
         self._runtime_sequence = self._initial_runtime_sequence()
         self._action_sequence = len(actions)
@@ -1721,6 +1723,17 @@ class WorldToolEngine:
 
     def _next_action_id(self) -> str:
         return f"act-r{self._action_sequence + 1:06d}"
+
+    @staticmethod
+    def _is_successful_finish_action(action: Action) -> bool:
+        """Identify the committed terminal Action, not a failed finish attempt."""
+
+        output = action.output_payload
+        return (
+            action.tool == "finish_episode"
+            and isinstance(output, dict)
+            and isinstance(output.get("final_snapshot_id"), str)
+        )
 
     def _mutation(
         self, kind: str, identifier: str, change: MutationChange, summary: str
