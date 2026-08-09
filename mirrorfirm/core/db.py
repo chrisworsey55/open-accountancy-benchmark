@@ -1,0 +1,462 @@
+"""SQLite persistence, snapshots, and read-only world views for WP-03.
+
+The database deliberately stores validated Pydantic records as canonical JSON.  This
+keeps the public models as the single schema authority while retaining SQLite's
+durability and constraints for a compiled world.  ``actions`` and ``events`` are
+separate append-only logs; every other persisted root record lives in ``records``.
+"""
+
+from __future__ import annotations
+
+import builtins
+import json
+import shutil
+import sqlite3
+from pathlib import Path
+from typing import Final, Literal, Protocol, Self, TypeVar
+
+from .digest import logical_state_digest
+from .models import (
+    MODEL_TYPES,
+    Action,
+    Event,
+    StateSnapshot,
+    VersionedModel,
+    WorldManifest,
+)
+
+ModelT = TypeVar("ModelT", bound=VersionedModel)
+
+_SCHEMA_VERSION: Final = "0.1"
+_PERSISTED_MODEL_TYPES: Final[tuple[type[VersionedModel], ...]] = tuple(
+    model_type
+    for model_type in MODEL_TYPES
+    if model_type is WorldManifest or "id" in model_type.model_fields
+)
+
+
+class WorldView(Protocol):
+    """Stable, read-only query interface over one world-state database."""
+
+    def get(self, model_type: type[ModelT], entity_id: str) -> ModelT | None:
+        """Return one record, or ``None`` when that identifier is absent."""
+
+    def list(self, model_type: type[ModelT]) -> tuple[ModelT, ...]:
+        """Return records of one model type in deterministic identifier order."""
+
+    def actions(self) -> tuple[Action, ...]:
+        """Return the append-only audit log ordered by step then identifier."""
+
+    def events(self) -> tuple[Event, ...]:
+        """Return the append-only event log ordered by identifier."""
+
+    def logical_state(self) -> dict[str, builtins.list[object]]:
+        """Return the complete, JSON-compatible state used for digesting."""
+
+    def state_digest(self) -> str:
+        """Return the §D.4 canonical digest of ``logical_state()``."""
+
+
+class SQLiteWorldView:
+    """A read-only ``WorldView`` backed by a SQLite snapshot database."""
+
+    def __init__(self, path: Path, connection: sqlite3.Connection) -> None:
+        self._path = path
+        self._connection = connection
+
+    @classmethod
+    def open(cls, path: str | Path) -> Self:
+        """Open an existing database in SQLite read-only mode."""
+
+        database_path = Path(path).resolve()
+        if not database_path.is_file():
+            raise FileNotFoundError(database_path)
+
+        connection = sqlite3.connect(f"{database_path.as_uri()}?mode=ro", uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            _verify_schema(connection)
+            connection.execute("PRAGMA query_only = ON")
+        except BaseException:
+            connection.close()
+            raise
+        return cls(database_path, connection)
+
+    def close(self) -> None:
+        """Close this read-only database handle."""
+
+        self._connection.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def get(self, model_type: type[ModelT], entity_id: str) -> ModelT | None:
+        """Return one typed record without exposing a writable connection."""
+
+        return _get_record(self._connection, model_type, entity_id)
+
+    def list(self, model_type: type[ModelT]) -> tuple[ModelT, ...]:
+        """List typed records in the deterministic ordering used by digests."""
+
+        return _list_records(self._connection, model_type)
+
+    def actions(self) -> tuple[Action, ...]:
+        """Read the append-only action log in execution order."""
+
+        return _list_records(self._connection, Action)
+
+    def events(self) -> tuple[Event, ...]:
+        """Read the append-only event log in deterministic identifier order."""
+
+        return _list_records(self._connection, Event)
+
+    def logical_state(self) -> dict[str, builtins.list[object]]:
+        """Materialise only logical domain records, never SQLite metadata."""
+
+        return _logical_state(self._connection)
+
+    def state_digest(self) -> str:
+        """Compute a §D.4 digest over this view's logical domain state."""
+
+        return logical_state_digest(self.logical_state())
+
+
+class WorldStore:
+    """Writable SQLite world store; expose queries through ``SQLiteWorldView``."""
+
+    def __init__(self, path: Path, connection: sqlite3.Connection) -> None:
+        self._path = path
+        self._connection = connection
+
+    @classmethod
+    def create(cls, path: str | Path) -> Self:
+        """Create a new, empty world database without overwriting an existing file."""
+
+        database_path = Path(path).resolve()
+        if database_path.exists():
+            raise FileExistsError(database_path)
+        database_path.parent.mkdir(parents=True, exist_ok=True)
+
+        connection = _connect_writable(database_path)
+        try:
+            _initialise_schema(connection)
+        except BaseException:
+            connection.close()
+            raise
+        return cls(database_path, connection)
+
+    @classmethod
+    def open(cls, path: str | Path) -> Self:
+        """Open an existing WP-03 world database for persistence operations."""
+
+        database_path = Path(path).resolve()
+        if not database_path.is_file():
+            raise FileNotFoundError(database_path)
+        connection = _connect_writable(database_path)
+        try:
+            _verify_schema(connection)
+        except BaseException:
+            connection.close()
+            raise
+        return cls(database_path, connection)
+
+    @property
+    def path(self) -> Path:
+        """The physical SQLite database path for this world."""
+
+        return self._path
+
+    def close(self) -> None:
+        """Commit completed work and close the writable database handle."""
+
+        self._connection.commit()
+        self._connection.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def save(self, record: VersionedModel) -> None:
+        """Persist a validated root record.
+
+        Actions and events deliberately dispatch to their append-only log methods;
+        attempting to save either a second time therefore fails at the database
+        constraint instead of replacing the original audit record.
+        """
+
+        if isinstance(record, Action):
+            self.append_action(record)
+            return
+        if isinstance(record, Event):
+            self.append_event(record)
+            return
+
+        model_type = type(record)
+        _require_record_model(model_type)
+        entity_id = _record_identifier(record)
+        payload = _serialise_model(record)
+        self._connection.execute(
+            """
+            INSERT INTO records (model_type, id, payload)
+            VALUES (?, ?, ?)
+            ON CONFLICT(model_type, id) DO UPDATE SET payload = excluded.payload
+            """,
+            (model_type.__name__, entity_id, payload),
+        )
+        self._connection.commit()
+
+    def load(self, model_type: type[ModelT], entity_id: str) -> ModelT:
+        """Load one record or raise ``KeyError`` when it does not exist."""
+
+        record = _get_record(self._connection, model_type, entity_id)
+        if record is None:
+            raise KeyError(f"{model_type.__name__} {entity_id!r} does not exist")
+        return record
+
+    def append_action(self, action: Action) -> None:
+        """Append one audit action; update and deletion are schema-prohibited."""
+
+        _append_log_record(self._connection, "actions", action)
+        self._connection.commit()
+
+    def append_event(self, event: Event) -> None:
+        """Append one event; update and deletion are schema-prohibited."""
+
+        _append_log_record(self._connection, "events", event)
+        self._connection.commit()
+
+    def view(self) -> SQLiteWorldView:
+        """Open a separate read-only query view over the committed database state."""
+
+        self._connection.commit()
+        return SQLiteWorldView.open(self._path)
+
+    def logical_state(self) -> dict[str, list[object]]:
+        """Return the current logical state without SQLite implementation details."""
+
+        return _logical_state(self._connection)
+
+    def state_digest(self) -> str:
+        """Return the canonical logical-state digest of the writable world."""
+
+        return logical_state_digest(self.logical_state())
+
+    def snapshot(
+        self,
+        destination: str | Path,
+        *,
+        snapshot_id: str,
+        episode_run_id: str,
+        phase: Literal["initial", "final"],
+    ) -> StateSnapshot:
+        """Copy the database and return its digest-bearing snapshot metadata.
+
+        Snapshot paths must be new.  This protects a previously recorded initial or
+        final state from accidental replacement and makes reset a simple recopy.
+        """
+
+        destination_path = Path(destination).resolve()
+        if destination_path == self._path:
+            raise ValueError(
+                "snapshot destination must differ from the source database"
+            )
+        if destination_path.exists():
+            raise FileExistsError(destination_path)
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        source_digest = self.state_digest()
+        self._connection.commit()
+        shutil.copy2(self._path, destination_path)
+
+        with SQLiteWorldView.open(destination_path) as snapshot_view:
+            snapshot_digest = snapshot_view.state_digest()
+        if snapshot_digest != source_digest:
+            raise RuntimeError("snapshot digest differs from its source database")
+
+        return StateSnapshot(
+            id=snapshot_id,
+            episode_run_id=episode_run_id,
+            phase=phase,
+            db_path=str(destination_path),
+            state_digest=snapshot_digest,
+        )
+
+
+def _connect_writable(path: Path) -> sqlite3.Connection:
+    connection = sqlite3.connect(path)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA journal_mode = DELETE")
+    return connection
+
+
+def _initialise_schema(connection: sqlite3.Connection) -> None:
+    connection.executescript(
+        """
+        CREATE TABLE metadata (
+            key TEXT PRIMARY KEY NOT NULL,
+            value TEXT NOT NULL
+        ) STRICT;
+
+        CREATE TABLE records (
+            model_type TEXT NOT NULL CHECK (length(model_type) > 0),
+            id TEXT NOT NULL CHECK (length(id) > 0),
+            payload TEXT NOT NULL CHECK (json_valid(payload)),
+            PRIMARY KEY (model_type, id)
+        ) STRICT;
+
+        CREATE TABLE actions (
+            id TEXT PRIMARY KEY NOT NULL CHECK (length(id) > 0),
+            step INTEGER NOT NULL UNIQUE,
+            payload TEXT NOT NULL CHECK (json_valid(payload))
+        ) STRICT;
+
+        CREATE TABLE events (
+            id TEXT PRIMARY KEY NOT NULL CHECK (length(id) > 0),
+            payload TEXT NOT NULL CHECK (json_valid(payload))
+        ) STRICT;
+
+        CREATE TRIGGER actions_no_update
+        BEFORE UPDATE ON actions
+        BEGIN
+            SELECT RAISE(ABORT, 'actions are append-only');
+        END;
+
+        CREATE TRIGGER actions_no_delete
+        BEFORE DELETE ON actions
+        BEGIN
+            SELECT RAISE(ABORT, 'actions are append-only');
+        END;
+
+        CREATE TRIGGER events_no_update
+        BEFORE UPDATE ON events
+        BEGIN
+            SELECT RAISE(ABORT, 'events are append-only');
+        END;
+
+        CREATE TRIGGER events_no_delete
+        BEFORE DELETE ON events
+        BEGIN
+            SELECT RAISE(ABORT, 'events are append-only');
+        END;
+        """
+    )
+    connection.execute(
+        "INSERT INTO metadata (key, value) VALUES (?, ?)",
+        ("schema_version", _SCHEMA_VERSION),
+    )
+    connection.commit()
+
+
+def _verify_schema(connection: sqlite3.Connection) -> None:
+    row = connection.execute(
+        "SELECT value FROM metadata WHERE key = ?", ("schema_version",)
+    ).fetchone()
+    if row is None or row["value"] != _SCHEMA_VERSION:
+        raise ValueError("not a compatible Mirror Firm world database")
+
+
+def _require_record_model(model_type: type[VersionedModel]) -> None:
+    if model_type not in _PERSISTED_MODEL_TYPES:
+        raise TypeError(
+            f"{model_type.__name__} is an embedded value model, not a persisted record"
+        )
+    if model_type in (Action, Event):
+        raise TypeError(f"{model_type.__name__} must use its append-only log table")
+
+
+def _record_identifier(record: VersionedModel) -> str:
+    field_name = "world_id" if isinstance(record, WorldManifest) else "id"
+    identifier = getattr(record, field_name, None)
+    if not isinstance(identifier, str) or not identifier:
+        raise TypeError(f"{type(record).__name__} has no persisted identifier")
+    return identifier
+
+
+def _serialise_model(record: VersionedModel) -> str:
+    return json.dumps(
+        record.model_dump(mode="json"),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _append_log_record(
+    connection: sqlite3.Connection,
+    table: Literal["actions", "events"],
+    record: Action | Event,
+) -> None:
+    if table == "actions":
+        if not isinstance(record, Action):
+            raise TypeError("actions table accepts only Action records")
+        connection.execute(
+            "INSERT INTO actions (id, step, payload) VALUES (?, ?, ?)",
+            (record.id, record.step, _serialise_model(record)),
+        )
+        return
+
+    if not isinstance(record, Event):
+        raise TypeError("events table accepts only Event records")
+    connection.execute(
+        "INSERT INTO events (id, payload) VALUES (?, ?)",
+        (record.id, _serialise_model(record)),
+    )
+
+
+def _get_record(
+    connection: sqlite3.Connection, model_type: type[ModelT], entity_id: str
+) -> ModelT | None:
+    if model_type is Action:
+        row = connection.execute(
+            "SELECT payload FROM actions WHERE id = ?", (entity_id,)
+        ).fetchone()
+    elif model_type is Event:
+        row = connection.execute(
+            "SELECT payload FROM events WHERE id = ?", (entity_id,)
+        ).fetchone()
+    else:
+        _require_record_model(model_type)
+        row = connection.execute(
+            "SELECT payload FROM records WHERE model_type = ? AND id = ?",
+            (model_type.__name__, entity_id),
+        ).fetchone()
+    return None if row is None else model_type.model_validate_json(row["payload"])
+
+
+def _list_records(
+    connection: sqlite3.Connection, model_type: type[ModelT]
+) -> tuple[ModelT, ...]:
+    if model_type is Action:
+        rows = connection.execute(
+            "SELECT payload FROM actions ORDER BY step, id"
+        ).fetchall()
+    elif model_type is Event:
+        rows = connection.execute("SELECT payload FROM events ORDER BY id").fetchall()
+    else:
+        _require_record_model(model_type)
+        rows = connection.execute(
+            "SELECT payload FROM records WHERE model_type = ? ORDER BY id",
+            (model_type.__name__,),
+        ).fetchall()
+    return tuple(model_type.model_validate_json(row["payload"]) for row in rows)
+
+
+def _logical_state(connection: sqlite3.Connection) -> dict[str, list[object]]:
+    state: dict[str, list[object]] = {
+        model_type.__name__: [] for model_type in _PERSISTED_MODEL_TYPES
+    }
+    for model_type in _PERSISTED_MODEL_TYPES:
+        if model_type in (Action, Event):
+            records: tuple[VersionedModel, ...] = _list_records(connection, model_type)
+        else:
+            records = _list_records(connection, model_type)
+        state[model_type.__name__] = [
+            record.model_dump(mode="json") for record in records
+        ]
+    return state
