@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "description": "Metadata for a materialised initial or final state snapshot.",
+  "properties": {
+    "db_path": {
+      "title": "Db Path",
+      "type": "string"
+    },
+    "episode_run_id": {
+      "title": "Episode Run Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "initial",
+        "final"
+      ],
+      "title": "Phase",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state_digest": {
+      "title": "State Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "episode_run_id",
+    "phase",
+    "db_path",
+    "state_digest"
+  ],
+  "title": "StateSnapshot",
+  "type": "object"
+}

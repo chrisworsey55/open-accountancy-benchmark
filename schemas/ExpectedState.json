@@ -1,0 +1,452 @@
+{
+  "$defs": {
+    "AccountBalance": {
+      "additionalProperties": false,
+      "description": "An expected account balance assertion.",
+      "properties": {
+        "account_id": {
+          "title": "Account Id",
+          "type": "string"
+        },
+        "expected_minor": {
+          "title": "Expected Minor",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "account_balance",
+          "title": "Kind",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tolerance_minor": {
+          "default": 0,
+          "title": "Tolerance Minor",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "account_id",
+        "period_id",
+        "expected_minor"
+      ],
+      "title": "AccountBalance",
+      "type": "object"
+    },
+    "ApprovalRequested": {
+      "additionalProperties": false,
+      "description": "An expected minimum number of approval requests.",
+      "properties": {
+        "approval_kind": {
+          "enum": [
+            "post_journal",
+            "post_to_closed_period",
+            "send_external_message",
+            "close_period"
+          ],
+          "title": "Approval Kind",
+          "type": "string"
+        },
+        "kind": {
+          "const": "approval_requested",
+          "title": "Kind",
+          "type": "string"
+        },
+        "min_count": {
+          "title": "Min Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "approval_kind",
+        "min_count"
+      ],
+      "title": "ApprovalRequested",
+      "type": "object"
+    },
+    "EntityCount": {
+      "additionalProperties": false,
+      "description": "An expected number of matching entity records.",
+      "properties": {
+        "entity_kind": {
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "kind": {
+          "const": "entity_count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/EntityMatch"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "op": {
+          "enum": [
+            "eq",
+            "gte",
+            "lte"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_kind",
+        "match",
+        "op",
+        "n"
+      ],
+      "title": "EntityCount",
+      "type": "object"
+    },
+    "EntityMatch": {
+      "additionalProperties": false,
+      "description": "An AND-combined predicate used by events and state assertions.",
+      "properties": {
+        "approval_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "post_journal",
+                "post_to_closed_period",
+                "send_external_message",
+                "close_period"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Kind"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "EntityMatch",
+      "type": "object"
+    },
+    "NoMutationOf": {
+      "additionalProperties": false,
+      "description": "An assertion that named records remain unchanged.",
+      "properties": {
+        "entity_kind": {
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "no_mutation_of",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_kind",
+        "ids"
+      ],
+      "title": "NoMutationOf",
+      "type": "object"
+    },
+    "TaskState": {
+      "additionalProperties": false,
+      "description": "An expected task lifecycle state.",
+      "properties": {
+        "kind": {
+          "const": "task_state",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in_progress",
+            "blocked",
+            "ready_for_review",
+            "done"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "task_id",
+        "status"
+      ],
+      "title": "TaskState",
+      "type": "object"
+    },
+    "TxnStatus": {
+      "additionalProperties": false,
+      "description": "An expected classification state for bank transactions.",
+      "properties": {
+        "btx_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Btx Ids",
+          "type": "array"
+        },
+        "classification_status": {
+          "enum": [
+            "unclassified",
+            "proposed",
+            "classified"
+          ],
+          "title": "Classification Status",
+          "type": "string"
+        },
+        "kind": {
+          "const": "txn_status",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "btx_ids",
+        "classification_status"
+      ],
+      "title": "TxnStatus",
+      "type": "object"
+    },
+    "UnresolvedFlagged": {
+      "additionalProperties": false,
+      "description": "An assertion that unresolved items are made explicit.",
+      "properties": {
+        "kind": {
+          "const": "unresolved_flagged",
+          "title": "Kind",
+          "type": "string"
+        },
+        "min_items": {
+          "title": "Min Items",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "workpaper_kind": {
+          "title": "Workpaper Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "workpaper_kind",
+        "min_items"
+      ],
+      "title": "UnresolvedFlagged",
+      "type": "object"
+    },
+    "WorkpaperState": {
+      "additionalProperties": false,
+      "description": "An expected workpaper lifecycle state.",
+      "properties": {
+        "kind": {
+          "const": "workpaper_state",
+          "title": "Kind",
+          "type": "string"
+        },
+        "must_tie": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Must Tie"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "final"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "workpaper_kind": {
+          "title": "Workpaper Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "workpaper_kind",
+        "status"
+      ],
+      "title": "WorkpaperState",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A collection of deterministic expected-state assertions.",
+  "properties": {
+    "assertions": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "account_balance": "#/$defs/AccountBalance",
+            "approval_requested": "#/$defs/ApprovalRequested",
+            "entity_count": "#/$defs/EntityCount",
+            "no_mutation_of": "#/$defs/NoMutationOf",
+            "task_state": "#/$defs/TaskState",
+            "txn_status": "#/$defs/TxnStatus",
+            "unresolved_flagged": "#/$defs/UnresolvedFlagged",
+            "workpaper_state": "#/$defs/WorkpaperState"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/AccountBalance"
+          },
+          {
+            "$ref": "#/$defs/TxnStatus"
+          },
+          {
+            "$ref": "#/$defs/EntityCount"
+          },
+          {
+            "$ref": "#/$defs/WorkpaperState"
+          },
+          {
+            "$ref": "#/$defs/ApprovalRequested"
+          },
+          {
+            "$ref": "#/$defs/TaskState"
+          },
+          {
+            "$ref": "#/$defs/NoMutationOf"
+          },
+          {
+            "$ref": "#/$defs/UnresolvedFlagged"
+          }
+        ]
+      },
+      "title": "Assertions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "assertions"
+  ],
+  "title": "ExpectedState",
+  "type": "object"
+}

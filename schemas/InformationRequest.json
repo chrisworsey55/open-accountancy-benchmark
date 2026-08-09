@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "IrqItem": {
+      "additionalProperties": false,
+      "description": "One requested item in an information request.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "refs"
+      ],
+      "title": "IrqItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An information-request lifecycle record.",
+  "properties": {
+    "client_id": {
+      "title": "Client Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/IrqItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "sent",
+        "responded_partial",
+        "responded",
+        "closed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "thread_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Thread Id"
+    }
+  },
+  "required": [
+    "id",
+    "client_id",
+    "thread_id",
+    "items",
+    "status"
+  ],
+  "title": "InformationRequest",
+  "type": "object"
+}

@@ -1,0 +1,50 @@
+{
+  "additionalProperties": false,
+  "description": "A qualitative episode criterion.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "prompt": {
+      "title": "Prompt",
+      "type": "string"
+    },
+    "scale": {
+      "enum": [
+        "binary",
+        "one_to_five"
+      ],
+      "title": "Scale",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "target": {
+      "enum": [
+        "outbound_messages",
+        "escalations",
+        "final_summary"
+      ],
+      "title": "Target",
+      "type": "string"
+    },
+    "weight": {
+      "title": "Weight",
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "prompt",
+    "target",
+    "scale",
+    "weight"
+  ],
+  "title": "JudgeCriterion",
+  "type": "object"
+}

@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "A reconciling item outstanding at the statement date.",
+  "properties": {
+    "amount_minor": {
+      "title": "Amount Minor",
+      "type": "integer"
+    },
+    "provenance_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Provenance Refs",
+      "type": "array"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "ref": {
+      "title": "Ref",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ref",
+    "amount_minor",
+    "reason",
+    "provenance_refs"
+  ],
+  "title": "OutstandingItem",
+  "type": "object"
+}

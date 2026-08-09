@@ -1,0 +1,379 @@
+{
+  "$defs": {
+    "BankReconWorkpaper": {
+      "additionalProperties": false,
+      "description": "Typed body for a bank-reconciliation workpaper.",
+      "properties": {
+        "bank_account_id": {
+          "title": "Bank Account Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "bank_reconciliation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ledger_end_minor": {
+          "title": "Ledger End Minor",
+          "type": "integer"
+        },
+        "outstanding": {
+          "items": {
+            "$ref": "#/$defs/OutstandingItem"
+          },
+          "title": "Outstanding",
+          "type": "array"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "statement_end_minor": {
+          "title": "Statement End Minor",
+          "type": "integer"
+        },
+        "unresolved": {
+          "items": {
+            "$ref": "#/$defs/UnresolvedItem"
+          },
+          "title": "Unresolved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "bank_account_id",
+        "period_id",
+        "statement_end_minor",
+        "ledger_end_minor",
+        "outstanding",
+        "unresolved"
+      ],
+      "title": "BankReconWorkpaper",
+      "type": "object"
+    },
+    "ClassificationRow": {
+      "additionalProperties": false,
+      "description": "A classification row and its evidence provenance.",
+      "properties": {
+        "account_id": {
+          "title": "Account Id",
+          "type": "string"
+        },
+        "bank_transaction_id": {
+          "title": "Bank Transaction Id",
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "clear",
+            "judgement",
+            "needs_client"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "provenance_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Provenance Refs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tax": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaxTag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "bank_transaction_id",
+        "account_id",
+        "tax",
+        "provenance_refs",
+        "confidence"
+      ],
+      "title": "ClassificationRow",
+      "type": "object"
+    },
+    "ClassificationSummaryWorkpaper": {
+      "additionalProperties": false,
+      "description": "Typed body for a classification-summary workpaper.",
+      "properties": {
+        "kind": {
+          "const": "classification_summary",
+          "title": "Kind",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/ClassificationRow"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "period_id",
+        "rows"
+      ],
+      "title": "ClassificationSummaryWorkpaper",
+      "type": "object"
+    },
+    "OutstandingItem": {
+      "additionalProperties": false,
+      "description": "A reconciling item outstanding at the statement date.",
+      "properties": {
+        "amount_minor": {
+          "title": "Amount Minor",
+          "type": "integer"
+        },
+        "provenance_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Provenance Refs",
+          "type": "array"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "amount_minor",
+        "reason",
+        "provenance_refs"
+      ],
+      "title": "OutstandingItem",
+      "type": "object"
+    },
+    "QueryLogWorkpaper": {
+      "additionalProperties": false,
+      "description": "Typed body for a query-log workpaper.",
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/UnresolvedItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "kind": {
+          "const": "query_log",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ],
+      "title": "QueryLogWorkpaper",
+      "type": "object"
+    },
+    "TaxTag": {
+      "additionalProperties": false,
+      "description": "A typed UK VAT classification tag.\n\nJurisdiction-pack validation of the code and rate is intentionally deferred to\nWP-04, as required by WP-02.",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "kind": {
+          "const": "uk_vat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rate_bp": {
+          "title": "Rate Bp",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "code",
+        "rate_bp"
+      ],
+      "title": "TaxTag",
+      "type": "object"
+    },
+    "UnresolvedItem": {
+      "additionalProperties": false,
+      "description": "A material item that has not been silently resolved.",
+      "properties": {
+        "amount_minor": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Amount Minor"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "provenance_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Provenance Refs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "amount_minor",
+        "provenance_refs"
+      ],
+      "title": "UnresolvedItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A typed workpaper whose finalisation time follows its lifecycle state.",
+  "properties": {
+    "body": {
+      "discriminator": {
+        "mapping": {
+          "bank_reconciliation": "#/$defs/BankReconWorkpaper",
+          "classification_summary": "#/$defs/ClassificationSummaryWorkpaper",
+          "query_log": "#/$defs/QueryLogWorkpaper"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BankReconWorkpaper"
+        },
+        {
+          "$ref": "#/$defs/ClassificationSummaryWorkpaper"
+        },
+        {
+          "$ref": "#/$defs/QueryLogWorkpaper"
+        }
+      ],
+      "title": "Body"
+    },
+    "created_by": {
+      "title": "Created By",
+      "type": "string"
+    },
+    "created_world_time": {
+      "format": "date-time",
+      "title": "Created World Time",
+      "type": "string"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "finalized_world_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finalized World Time"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "final"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "engagement_id",
+    "task_id",
+    "body",
+    "status",
+    "created_by",
+    "created_world_time"
+  ],
+  "title": "Workpaper",
+  "type": "object"
+}

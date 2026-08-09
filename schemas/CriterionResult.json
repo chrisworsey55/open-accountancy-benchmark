@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "description": "A deterministic or qualitative criterion result.",
+  "properties": {
+    "criterion_id": {
+      "title": "Criterion Id",
+      "type": "string"
+    },
+    "detail": {
+      "title": "Detail",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score": {
+      "title": "Score",
+      "type": "number"
+    }
+  },
+  "required": [
+    "criterion_id",
+    "passed",
+    "score",
+    "detail",
+    "evidence_refs"
+  ],
+  "title": "CriterionResult",
+  "type": "object"
+}

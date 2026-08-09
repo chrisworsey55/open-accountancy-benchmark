@@ -1,0 +1,799 @@
+{
+  "$defs": {
+    "AccountBalance": {
+      "additionalProperties": false,
+      "description": "An expected account balance assertion.",
+      "properties": {
+        "account_id": {
+          "title": "Account Id",
+          "type": "string"
+        },
+        "expected_minor": {
+          "title": "Expected Minor",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "account_balance",
+          "title": "Kind",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tolerance_minor": {
+          "default": 0,
+          "title": "Tolerance Minor",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "account_id",
+        "period_id",
+        "expected_minor"
+      ],
+      "title": "AccountBalance",
+      "type": "object"
+    },
+    "ApprovalRequested": {
+      "additionalProperties": false,
+      "description": "An expected minimum number of approval requests.",
+      "properties": {
+        "approval_kind": {
+          "enum": [
+            "post_journal",
+            "post_to_closed_period",
+            "send_external_message",
+            "close_period"
+          ],
+          "title": "Approval Kind",
+          "type": "string"
+        },
+        "kind": {
+          "const": "approval_requested",
+          "title": "Kind",
+          "type": "string"
+        },
+        "min_count": {
+          "title": "Min Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "approval_kind",
+        "min_count"
+      ],
+      "title": "ApprovalRequested",
+      "type": "object"
+    },
+    "Budget": {
+      "additionalProperties": false,
+      "description": "An episode's deterministic resource budget.",
+      "properties": {
+        "max_steps": {
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_world_days": {
+          "title": "Max World Days",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "max_steps",
+        "max_tokens",
+        "max_world_days"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "DeliverableSpec": {
+      "additionalProperties": false,
+      "description": "A required episode deliverable.",
+      "properties": {
+        "acceptance": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acceptance",
+          "type": "array"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "workpaper",
+            "message",
+            "summary"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "workpaper_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workpaper Kind"
+        }
+      },
+      "required": [
+        "kind",
+        "description",
+        "acceptance"
+      ],
+      "title": "DeliverableSpec",
+      "type": "object"
+    },
+    "DeterministicCriterion": {
+      "additionalProperties": false,
+      "description": "A configuration record for a deterministic grader.",
+      "properties": {
+        "grader_id": {
+          "title": "Grader Id",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "layer": {
+          "enum": [
+            "task_completion",
+            "accounting",
+            "state",
+            "safety",
+            "provenance",
+            "efficiency"
+          ],
+          "title": "Layer",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "grader_id",
+        "params",
+        "layer"
+      ],
+      "title": "DeterministicCriterion",
+      "type": "object"
+    },
+    "EntityCount": {
+      "additionalProperties": false,
+      "description": "An expected number of matching entity records.",
+      "properties": {
+        "entity_kind": {
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "kind": {
+          "const": "entity_count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/EntityMatch"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "op": {
+          "enum": [
+            "eq",
+            "gte",
+            "lte"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_kind",
+        "match",
+        "op",
+        "n"
+      ],
+      "title": "EntityCount",
+      "type": "object"
+    },
+    "EntityMatch": {
+      "additionalProperties": false,
+      "description": "An AND-combined predicate used by events and state assertions.",
+      "properties": {
+        "approval_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "post_journal",
+                "post_to_closed_period",
+                "send_external_message",
+                "close_period"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Kind"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "EntityMatch",
+      "type": "object"
+    },
+    "ExpectedState": {
+      "additionalProperties": false,
+      "description": "A collection of deterministic expected-state assertions.",
+      "properties": {
+        "assertions": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "account_balance": "#/$defs/AccountBalance",
+                "approval_requested": "#/$defs/ApprovalRequested",
+                "entity_count": "#/$defs/EntityCount",
+                "no_mutation_of": "#/$defs/NoMutationOf",
+                "task_state": "#/$defs/TaskState",
+                "txn_status": "#/$defs/TxnStatus",
+                "unresolved_flagged": "#/$defs/UnresolvedFlagged",
+                "workpaper_state": "#/$defs/WorkpaperState"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/AccountBalance"
+              },
+              {
+                "$ref": "#/$defs/TxnStatus"
+              },
+              {
+                "$ref": "#/$defs/EntityCount"
+              },
+              {
+                "$ref": "#/$defs/WorkpaperState"
+              },
+              {
+                "$ref": "#/$defs/ApprovalRequested"
+              },
+              {
+                "$ref": "#/$defs/TaskState"
+              },
+              {
+                "$ref": "#/$defs/NoMutationOf"
+              },
+              {
+                "$ref": "#/$defs/UnresolvedFlagged"
+              }
+            ]
+          },
+          "title": "Assertions",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "assertions"
+      ],
+      "title": "ExpectedState",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "JudgeCriterion": {
+      "additionalProperties": false,
+      "description": "A qualitative episode criterion.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "scale": {
+          "enum": [
+            "binary",
+            "one_to_five"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "outbound_messages",
+            "escalations",
+            "final_summary"
+          ],
+          "title": "Target",
+          "type": "string"
+        },
+        "weight": {
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "prompt",
+        "target",
+        "scale",
+        "weight"
+      ],
+      "title": "JudgeCriterion",
+      "type": "object"
+    },
+    "NoMutationOf": {
+      "additionalProperties": false,
+      "description": "An assertion that named records remain unchanged.",
+      "properties": {
+        "entity_kind": {
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "no_mutation_of",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_kind",
+        "ids"
+      ],
+      "title": "NoMutationOf",
+      "type": "object"
+    },
+    "ReferenceResult": {
+      "additionalProperties": false,
+      "description": "The result metadata for a scripted reference trajectory.",
+      "properties": {
+        "final_state_digest": {
+          "title": "Final State Digest",
+          "type": "string"
+        },
+        "note": {
+          "const": "reference-scripted-run; not model performance",
+          "title": "Note",
+          "type": "string"
+        },
+        "reference_script": {
+          "title": "Reference Script",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference_script",
+        "final_state_digest",
+        "note"
+      ],
+      "title": "ReferenceResult",
+      "type": "object"
+    },
+    "TaskState": {
+      "additionalProperties": false,
+      "description": "An expected task lifecycle state.",
+      "properties": {
+        "kind": {
+          "const": "task_state",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in_progress",
+            "blocked",
+            "ready_for_review",
+            "done"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "task_id",
+        "status"
+      ],
+      "title": "TaskState",
+      "type": "object"
+    },
+    "TxnStatus": {
+      "additionalProperties": false,
+      "description": "An expected classification state for bank transactions.",
+      "properties": {
+        "btx_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Btx Ids",
+          "type": "array"
+        },
+        "classification_status": {
+          "enum": [
+            "unclassified",
+            "proposed",
+            "classified"
+          ],
+          "title": "Classification Status",
+          "type": "string"
+        },
+        "kind": {
+          "const": "txn_status",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "btx_ids",
+        "classification_status"
+      ],
+      "title": "TxnStatus",
+      "type": "object"
+    },
+    "UnresolvedFlagged": {
+      "additionalProperties": false,
+      "description": "An assertion that unresolved items are made explicit.",
+      "properties": {
+        "kind": {
+          "const": "unresolved_flagged",
+          "title": "Kind",
+          "type": "string"
+        },
+        "min_items": {
+          "title": "Min Items",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "workpaper_kind": {
+          "title": "Workpaper Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "workpaper_kind",
+        "min_items"
+      ],
+      "title": "UnresolvedFlagged",
+      "type": "object"
+    },
+    "WorkpaperState": {
+      "additionalProperties": false,
+      "description": "An expected workpaper lifecycle state.",
+      "properties": {
+        "kind": {
+          "const": "workpaper_state",
+          "title": "Kind",
+          "type": "string"
+        },
+        "must_tie": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Must Tie"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "final"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "workpaper_kind": {
+          "title": "Workpaper Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "workpaper_kind",
+        "status"
+      ],
+      "title": "WorkpaperState",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An authored episode manifest.",
+  "properties": {
+    "agent_person_id": {
+      "title": "Agent Person Id",
+      "type": "string"
+    },
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "budget": {
+      "$ref": "#/$defs/Budget"
+    },
+    "commercial_rationale": {
+      "title": "Commercial Rationale",
+      "type": "string"
+    },
+    "critical_failures_active": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Critical Failures Active",
+      "type": "array"
+    },
+    "deliverables": {
+      "items": {
+        "$ref": "#/$defs/DeliverableSpec"
+      },
+      "title": "Deliverables",
+      "type": "array"
+    },
+    "deterministic_criteria": {
+      "items": {
+        "$ref": "#/$defs/DeterministicCriterion"
+      },
+      "title": "Deterministic Criteria",
+      "type": "array"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "episode_id": {
+      "title": "Episode Id",
+      "type": "string"
+    },
+    "event_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Event Ids",
+      "type": "array"
+    },
+    "expected_state": {
+      "$ref": "#/$defs/ExpectedState"
+    },
+    "instruction": {
+      "title": "Instruction",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "enum": [
+        "uk",
+        "us"
+      ],
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "qualitative_criteria": {
+      "items": {
+        "$ref": "#/$defs/JudgeCriterion"
+      },
+      "title": "Qualitative Criteria",
+      "type": "array"
+    },
+    "reference": {
+      "$ref": "#/$defs/ReferenceResult"
+    },
+    "runs_for_reliability": {
+      "default": 3,
+      "title": "Runs For Reliability",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "world_id": {
+      "title": "World Id",
+      "type": "string"
+    },
+    "world_version": {
+      "title": "World Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "episode_id",
+    "title",
+    "world_id",
+    "world_version",
+    "jurisdiction",
+    "engagement_id",
+    "agent_person_id",
+    "instruction",
+    "allowed_tools",
+    "event_ids",
+    "budget",
+    "deliverables",
+    "deterministic_criteria",
+    "qualitative_criteria",
+    "critical_failures_active",
+    "expected_state",
+    "reference",
+    "commercial_rationale"
+  ],
+  "title": "EpisodeManifest",
+  "type": "object"
+}

@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "description": "Descriptor for a close-period approval.",
+  "properties": {
+    "kind": {
+      "const": "close_period",
+      "title": "Kind",
+      "type": "string"
+    },
+    "period_id": {
+      "title": "Period Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "period_id"
+  ],
+  "title": "ClosePeriodDescriptor",
+  "type": "object"
+}

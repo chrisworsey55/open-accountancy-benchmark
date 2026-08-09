@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "description": "Resource use accumulated during an episode run.",
+  "properties": {
+    "cost_usd": {
+      "title": "Cost Usd",
+      "type": "number"
+    },
+    "latency_s": {
+      "title": "Latency S",
+      "type": "number"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "steps": {
+      "title": "Steps",
+      "type": "integer"
+    },
+    "tokens_in": {
+      "title": "Tokens In",
+      "type": "integer"
+    },
+    "tokens_out": {
+      "title": "Tokens Out",
+      "type": "integer"
+    },
+    "world_days_elapsed": {
+      "title": "World Days Elapsed",
+      "type": "number"
+    }
+  },
+  "required": [
+    "steps",
+    "tokens_in",
+    "tokens_out",
+    "cost_usd",
+    "latency_s",
+    "world_days_elapsed"
+  ],
+  "title": "Usage",
+  "type": "object"
+}

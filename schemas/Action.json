@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "Mutation": {
+      "additionalProperties": false,
+      "description": "A summary of one logical entity mutation caused by an action.",
+      "properties": {
+        "change": {
+          "enum": [
+            "created",
+            "updated",
+            "status_changed"
+          ],
+          "title": "Change",
+          "type": "string"
+        },
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "entity_kind": {
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_kind",
+        "entity_id",
+        "change",
+        "summary"
+      ],
+      "title": "Mutation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An append-only audit action.",
+  "properties": {
+    "actor": {
+      "title": "Actor",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "input_digest": {
+      "title": "Input Digest",
+      "type": "string"
+    },
+    "input_payload": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "mutations": {
+      "items": {
+        "$ref": "#/$defs/Mutation"
+      },
+      "title": "Mutations",
+      "type": "array"
+    },
+    "output_digest": {
+      "title": "Output Digest",
+      "type": "string"
+    },
+    "output_payload": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "step": {
+      "title": "Step",
+      "type": "integer"
+    },
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    },
+    "world_time_after": {
+      "format": "date-time",
+      "title": "World Time After",
+      "type": "string"
+    },
+    "world_time_before": {
+      "format": "date-time",
+      "title": "World Time Before",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "step",
+    "actor",
+    "tool",
+    "input_digest",
+    "output_digest",
+    "input_payload",
+    "output_payload",
+    "world_time_before",
+    "world_time_after",
+    "mutations"
+  ],
+  "title": "Action",
+  "type": "object"
+}

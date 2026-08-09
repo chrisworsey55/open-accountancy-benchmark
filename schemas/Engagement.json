@@ -1,0 +1,50 @@
+{
+  "additionalProperties": false,
+  "description": "A scoped bookkeeping engagement.",
+  "properties": {
+    "client_id": {
+      "title": "Client Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "period_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Period Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "const": "bookkeeping",
+      "title": "Scope",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "paused",
+        "closed"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "client_id",
+    "scope",
+    "period_ids",
+    "status"
+  ],
+  "title": "Engagement",
+  "type": "object"
+}

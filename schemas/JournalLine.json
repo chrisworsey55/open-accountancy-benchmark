@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "TaxTag": {
+      "additionalProperties": false,
+      "description": "A typed UK VAT classification tag.\n\nJurisdiction-pack validation of the code and rate is intentionally deferred to\nWP-04, as required by WP-02.",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "kind": {
+          "const": "uk_vat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rate_bp": {
+          "title": "Rate Bp",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "code",
+        "rate_bp"
+      ],
+      "title": "TaxTag",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One debit or credit in a journal.",
+  "properties": {
+    "account_id": {
+      "title": "Account Id",
+      "type": "string"
+    },
+    "amount_minor": {
+      "exclusiveMinimum": 0,
+      "title": "Amount Minor",
+      "type": "integer"
+    },
+    "bank_transaction_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bank Transaction Id"
+    },
+    "currency": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "dr",
+        "cr"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tax": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaxTag"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "account_id",
+    "direction",
+    "amount_minor",
+    "currency"
+  ],
+  "title": "JournalLine",
+  "type": "object"
+}

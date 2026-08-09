@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "A directed relation between a subject and its evidence basis.",
+  "properties": {
+    "basis_ref": {
+      "title": "Basis Ref",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "relation": {
+      "enum": [
+        "supported_by",
+        "derived_from",
+        "authorized_by",
+        "contradicted_by"
+      ],
+      "title": "Relation",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject_ref": {
+      "title": "Subject Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "subject_ref",
+    "basis_ref",
+    "relation"
+  ],
+  "title": "ProvenanceRecord",
+  "type": "object"
+}

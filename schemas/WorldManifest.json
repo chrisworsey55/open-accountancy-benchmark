@@ -1,0 +1,90 @@
+{
+  "additionalProperties": false,
+  "description": "The authored world manifest stored in ``worlds/<id>/world.yaml``.",
+  "properties": {
+    "client_files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Client Files",
+      "type": "array"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "events_file": {
+      "title": "Events File",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "enum": [
+        "uk",
+        "us"
+      ],
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "license": {
+      "const": "CC-BY-4.0",
+      "title": "License",
+      "type": "string"
+    },
+    "practice_file": {
+      "title": "Practice File",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "start_world_time": {
+      "format": "date-time",
+      "title": "Start World Time",
+      "type": "string"
+    },
+    "timezone": {
+      "title": "Timezone",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "trap_register_file": {
+      "title": "Trap Register File",
+      "type": "string"
+    },
+    "world_id": {
+      "title": "World Id",
+      "type": "string"
+    },
+    "world_version": {
+      "title": "World Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "world_id",
+    "world_version",
+    "jurisdiction",
+    "timezone",
+    "title",
+    "description",
+    "seed",
+    "start_world_time",
+    "practice_file",
+    "client_files",
+    "events_file",
+    "trap_register_file",
+    "license"
+  ],
+  "title": "WorldManifest",
+  "type": "object"
+}

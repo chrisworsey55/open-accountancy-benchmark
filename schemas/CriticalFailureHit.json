@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "description": "A critical failure that zeroes an evaluation result.",
+  "properties": {
+    "cf_id": {
+      "title": "Cf Id",
+      "type": "string"
+    },
+    "detail": {
+      "title": "Detail",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cf_id",
+    "detail",
+    "evidence_refs"
+  ],
+  "title": "CriticalFailureHit",
+  "type": "object"
+}

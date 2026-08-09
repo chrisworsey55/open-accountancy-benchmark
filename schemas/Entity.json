@@ -1,0 +1,141 @@
+{
+  "$defs": {
+    "UkTax": {
+      "additionalProperties": false,
+      "description": "UK VAT registration details.",
+      "properties": {
+        "kind": {
+          "const": "uk",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "vat_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Vat Number"
+        },
+        "vat_registered": {
+          "title": "Vat Registered",
+          "type": "boolean"
+        },
+        "vat_scheme": {
+          "enum": [
+            "standard",
+            "flat_rate",
+            "none"
+          ],
+          "title": "Vat Scheme",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "vat_registered",
+        "vat_number",
+        "vat_scheme"
+      ],
+      "title": "UkTax",
+      "type": "object"
+    },
+    "UsTax": {
+      "additionalProperties": false,
+      "description": "US sales-tax nexus details.",
+      "properties": {
+        "kind": {
+          "const": "us",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sales_tax_nexus": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sales Tax Nexus",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sales_tax_nexus"
+      ],
+      "title": "UsTax",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A client legal entity.",
+  "properties": {
+    "basis": {
+      "enum": [
+        "accrual",
+        "cash"
+      ],
+      "title": "Basis",
+      "type": "string"
+    },
+    "currency": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "legal_form": {
+      "title": "Legal Form",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tax": {
+      "discriminator": {
+        "mapping": {
+          "uk": "#/$defs/UkTax",
+          "us": "#/$defs/UsTax"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UkTax"
+        },
+        {
+          "$ref": "#/$defs/UsTax"
+        }
+      ],
+      "title": "Tax"
+    }
+  },
+  "required": [
+    "id",
+    "legal_form",
+    "basis",
+    "currency",
+    "tax"
+  ],
+  "title": "Entity",
+  "type": "object"
+}

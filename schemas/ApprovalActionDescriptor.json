@@ -1,0 +1,140 @@
+{
+  "$defs": {
+    "ClosePeriodDescriptor": {
+      "additionalProperties": false,
+      "description": "Descriptor for a close-period approval.",
+      "properties": {
+        "kind": {
+          "const": "close_period",
+          "title": "Kind",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "period_id"
+      ],
+      "title": "ClosePeriodDescriptor",
+      "type": "object"
+    },
+    "PostJournalDescriptor": {
+      "additionalProperties": false,
+      "description": "Descriptor for a post-journal approval.",
+      "properties": {
+        "journal_id": {
+          "title": "Journal Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "post_journal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "journal_id"
+      ],
+      "title": "PostJournalDescriptor",
+      "type": "object"
+    },
+    "PostToClosedPeriodDescriptor": {
+      "additionalProperties": false,
+      "description": "Descriptor for a post-to-closed-period approval.",
+      "properties": {
+        "journal_id": {
+          "title": "Journal Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "post_to_closed_period",
+          "title": "Kind",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "journal_id",
+        "period_id"
+      ],
+      "title": "PostToClosedPeriodDescriptor",
+      "type": "object"
+    },
+    "SendMessageDescriptor": {
+      "additionalProperties": false,
+      "description": "Descriptor for a send-message approval.",
+      "properties": {
+        "draft_message_id": {
+          "title": "Draft Message Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "send_external_message",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "draft_message_id"
+      ],
+      "title": "SendMessageDescriptor",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "close_period": "#/$defs/ClosePeriodDescriptor",
+      "post_journal": "#/$defs/PostJournalDescriptor",
+      "post_to_closed_period": "#/$defs/PostToClosedPeriodDescriptor",
+      "send_external_message": "#/$defs/SendMessageDescriptor"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/PostJournalDescriptor"
+    },
+    {
+      "$ref": "#/$defs/PostToClosedPeriodDescriptor"
+    },
+    {
+      "$ref": "#/$defs/SendMessageDescriptor"
+    },
+    {
+      "$ref": "#/$defs/ClosePeriodDescriptor"
+    }
+  ]
+}

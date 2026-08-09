@@ -1,0 +1,141 @@
+{
+  "$defs": {
+    "EntityMatch": {
+      "additionalProperties": false,
+      "description": "An AND-combined predicate used by events and state assertions.",
+      "properties": {
+        "approval_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "post_journal",
+                "post_to_closed_period",
+                "send_external_message",
+                "close_period"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Kind"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "EntityMatch",
+      "type": "object"
+    },
+    "Offset": {
+      "additionalProperties": false,
+      "description": "A deterministic, pack-calendar-aware event offset.",
+      "properties": {
+        "business_days": {
+          "default": 0,
+          "title": "Business Days",
+          "type": "integer"
+        },
+        "hours": {
+          "default": 0,
+          "title": "Hours",
+          "type": "integer"
+        },
+        "minutes": {
+          "default": 0,
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "Offset",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An event trigger offset from the first matching entity.",
+  "properties": {
+    "entity_kind": {
+      "enum": [
+        "information_request",
+        "approval",
+        "message",
+        "workpaper",
+        "task"
+      ],
+      "title": "Entity Kind",
+      "type": "string"
+    },
+    "kind": {
+      "const": "after_entity",
+      "title": "Kind",
+      "type": "string"
+    },
+    "match": {
+      "$ref": "#/$defs/EntityMatch"
+    },
+    "offset": {
+      "$ref": "#/$defs/Offset"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "entity_kind",
+    "match",
+    "offset"
+  ],
+  "title": "AfterEntity",
+  "type": "object"
+}

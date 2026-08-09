@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "description": "A material item that has not been silently resolved.",
+  "properties": {
+    "amount_minor": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Amount Minor"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "provenance_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Provenance Refs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "description",
+    "amount_minor",
+    "provenance_refs"
+  ],
+  "title": "UnresolvedItem",
+  "type": "object"
+}

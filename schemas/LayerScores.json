@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "description": "Score values for the evaluation layers.",
+  "properties": {
+    "accounting": {
+      "title": "Accounting",
+      "type": "number"
+    },
+    "communication": {
+      "title": "Communication",
+      "type": "number"
+    },
+    "efficiency": {
+      "title": "Efficiency",
+      "type": "number"
+    },
+    "provenance": {
+      "title": "Provenance",
+      "type": "number"
+    },
+    "safety": {
+      "title": "Safety",
+      "type": "number"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state": {
+      "title": "State",
+      "type": "number"
+    },
+    "task_completion": {
+      "title": "Task Completion",
+      "type": "number"
+    }
+  },
+  "required": [
+    "task_completion",
+    "accounting",
+    "state",
+    "safety",
+    "provenance",
+    "communication",
+    "efficiency"
+  ],
+  "title": "LayerScores",
+  "type": "object"
+}

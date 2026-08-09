@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "description": "An accounting period lifecycle record.",
+  "properties": {
+    "end": {
+      "format": "date",
+      "title": "End",
+      "type": "string"
+    },
+    "entity_id": {
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "start": {
+      "format": "date",
+      "title": "Start",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "in_close",
+        "closed",
+        "locked"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "entity_id",
+    "start",
+    "end",
+    "status"
+  ],
+  "title": "AccountingPeriod",
+  "type": "object"
+}

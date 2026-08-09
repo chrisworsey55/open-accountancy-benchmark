@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "The result metadata for a scripted reference trajectory.",
+  "properties": {
+    "final_state_digest": {
+      "title": "Final State Digest",
+      "type": "string"
+    },
+    "note": {
+      "const": "reference-scripted-run; not model performance",
+      "title": "Note",
+      "type": "string"
+    },
+    "reference_script": {
+      "title": "Reference Script",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reference_script",
+    "final_state_digest",
+    "note"
+  ],
+  "title": "ReferenceResult",
+  "type": "object"
+}

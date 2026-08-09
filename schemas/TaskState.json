@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "An expected task lifecycle state.",
+  "properties": {
+    "kind": {
+      "const": "task_state",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "in_progress",
+        "blocked",
+        "ready_for_review",
+        "done"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "task_id",
+    "status"
+  ],
+  "title": "TaskState",
+  "type": "object"
+}

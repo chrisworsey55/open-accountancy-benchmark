@@ -1,0 +1,67 @@
+{
+  "additionalProperties": false,
+  "description": "A single imported bank-feed transaction.",
+  "properties": {
+    "amount_minor": {
+      "title": "Amount Minor",
+      "type": "integer"
+    },
+    "bank_account_id": {
+      "title": "Bank Account Id",
+      "type": "string"
+    },
+    "classification_status": {
+      "enum": [
+        "unclassified",
+        "proposed",
+        "classified"
+      ],
+      "title": "Classification Status",
+      "type": "string"
+    },
+    "counterparty": {
+      "title": "Counterparty",
+      "type": "string"
+    },
+    "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "reconciliation_status": {
+      "enum": [
+        "unmatched",
+        "matched",
+        "flagged"
+      ],
+      "title": "Reconciliation Status",
+      "type": "string"
+    },
+    "reference": {
+      "title": "Reference",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "bank_account_id",
+    "date",
+    "amount_minor",
+    "counterparty",
+    "reference",
+    "classification_status",
+    "reconciliation_status"
+  ],
+  "title": "BankTransaction",
+  "type": "object"
+}

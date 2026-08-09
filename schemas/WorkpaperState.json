@@ -1,0 +1,48 @@
+{
+  "additionalProperties": false,
+  "description": "An expected workpaper lifecycle state.",
+  "properties": {
+    "kind": {
+      "const": "workpaper_state",
+      "title": "Kind",
+      "type": "string"
+    },
+    "must_tie": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Must Tie"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "final"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "workpaper_kind": {
+      "title": "Workpaper Kind",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "workpaper_kind",
+    "status"
+  ],
+  "title": "WorkpaperState",
+  "type": "object"
+}

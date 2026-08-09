@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "An expected account balance assertion.",
+  "properties": {
+    "account_id": {
+      "title": "Account Id",
+      "type": "string"
+    },
+    "expected_minor": {
+      "title": "Expected Minor",
+      "type": "integer"
+    },
+    "kind": {
+      "const": "account_balance",
+      "title": "Kind",
+      "type": "string"
+    },
+    "period_id": {
+      "title": "Period Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tolerance_minor": {
+      "default": 0,
+      "title": "Tolerance Minor",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "kind",
+    "account_id",
+    "period_id",
+    "expected_minor"
+  ],
+  "title": "AccountBalance",
+  "type": "object"
+}

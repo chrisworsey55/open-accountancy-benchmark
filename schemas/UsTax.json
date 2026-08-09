@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "description": "US sales-tax nexus details.",
+  "properties": {
+    "kind": {
+      "const": "us",
+      "title": "Kind",
+      "type": "string"
+    },
+    "sales_tax_nexus": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sales Tax Nexus",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "sales_tax_nexus"
+  ],
+  "title": "UsTax",
+  "type": "object"
+}

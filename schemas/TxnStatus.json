@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "description": "An expected classification state for bank transactions.",
+  "properties": {
+    "btx_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Btx Ids",
+      "type": "array"
+    },
+    "classification_status": {
+      "enum": [
+        "unclassified",
+        "proposed",
+        "classified"
+      ],
+      "title": "Classification Status",
+      "type": "string"
+    },
+    "kind": {
+      "const": "txn_status",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "btx_ids",
+    "classification_status"
+  ],
+  "title": "TxnStatus",
+  "type": "object"
+}

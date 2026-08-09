@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "description": "An event payload delivering a fictional client reply.",
+  "properties": {
+    "attachment_fixture_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Attachment Fixture Refs",
+      "type": "array"
+    },
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "kind": {
+      "const": "client_reply",
+      "title": "Kind",
+      "type": "string"
+    },
+    "marks_irq": {
+      "anyOf": [
+        {
+          "enum": [
+            "responded",
+            "responded_partial"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Marks Irq"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "thread_ref": {
+      "title": "Thread Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "thread_ref",
+    "body",
+    "attachment_fixture_refs"
+  ],
+  "title": "ClientReplyPayload",
+  "type": "object"
+}

@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "description": "An event payload carrying a reviewer note and optional effect.",
+  "properties": {
+    "effect": {
+      "enum": [
+        "none",
+        "reopen_workpaper",
+        "set_task_status"
+      ],
+      "title": "Effect",
+      "type": "string"
+    },
+    "effect_arg": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effect Arg"
+    },
+    "kind": {
+      "const": "reviewer_note",
+      "title": "Kind",
+      "type": "string"
+    },
+    "note": {
+      "title": "Note",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "target_ref": {
+      "title": "Target Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "target_ref",
+    "note",
+    "effect"
+  ],
+  "title": "ReviewerNotePayload",
+  "type": "object"
+}

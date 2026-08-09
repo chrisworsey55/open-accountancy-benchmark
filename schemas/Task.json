@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "description": "A bookkeeping work item.",
+  "properties": {
+    "assignee": {
+      "title": "Assignee",
+      "type": "string"
+    },
+    "blocked_on": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Blocked On"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "due": {
+      "format": "date",
+      "title": "Due",
+      "type": "string"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "in_progress",
+        "blocked",
+        "ready_for_review",
+        "done"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "engagement_id",
+    "assignee",
+    "title",
+    "description",
+    "due",
+    "status"
+  ],
+  "title": "Task",
+  "type": "object"
+}

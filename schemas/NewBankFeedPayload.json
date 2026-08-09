@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "description": "An event payload introducing bank-feed transactions.",
+  "properties": {
+    "bank_account_id": {
+      "title": "Bank Account Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "new_bank_feed",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "txn_fixture_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Txn Fixture Refs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "kind",
+    "bank_account_id",
+    "txn_fixture_refs"
+  ],
+  "title": "NewBankFeedPayload",
+  "type": "object"
+}

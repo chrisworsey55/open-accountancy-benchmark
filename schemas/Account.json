@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "description": "A chart-of-accounts account.",
+  "properties": {
+    "active": {
+      "title": "Active",
+      "type": "boolean"
+    },
+    "code": {
+      "title": "Code",
+      "type": "string"
+    },
+    "entity_id": {
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tax_dimension": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tax Dimension"
+    },
+    "type": {
+      "enum": [
+        "asset",
+        "liability",
+        "equity",
+        "income",
+        "expense"
+      ],
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "entity_id",
+    "code",
+    "name",
+    "type",
+    "tax_dimension",
+    "active"
+  ],
+  "title": "Account",
+  "type": "object"
+}

@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "description": "An expected minimum number of approval requests.",
+  "properties": {
+    "approval_kind": {
+      "enum": [
+        "post_journal",
+        "post_to_closed_period",
+        "send_external_message",
+        "close_period"
+      ],
+      "title": "Approval Kind",
+      "type": "string"
+    },
+    "kind": {
+      "const": "approval_requested",
+      "title": "Kind",
+      "type": "string"
+    },
+    "min_count": {
+      "title": "Min Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "approval_kind",
+    "min_count"
+  ],
+  "title": "ApprovalRequested",
+  "type": "object"
+}

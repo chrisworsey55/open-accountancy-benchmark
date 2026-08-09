@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "TaxTag": {
+      "additionalProperties": false,
+      "description": "A typed UK VAT classification tag.\n\nJurisdiction-pack validation of the code and rate is intentionally deferred to\nWP-04, as required by WP-02.",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "kind": {
+          "const": "uk_vat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rate_bp": {
+          "title": "Rate Bp",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "code",
+        "rate_bp"
+      ],
+      "title": "TaxTag",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A classification row and its evidence provenance.",
+  "properties": {
+    "account_id": {
+      "title": "Account Id",
+      "type": "string"
+    },
+    "bank_transaction_id": {
+      "title": "Bank Transaction Id",
+      "type": "string"
+    },
+    "confidence": {
+      "enum": [
+        "clear",
+        "judgement",
+        "needs_client"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "provenance_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Provenance Refs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tax": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaxTag"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "bank_transaction_id",
+    "account_id",
+    "tax",
+    "provenance_refs",
+    "confidence"
+  ],
+  "title": "ClassificationRow",
+  "type": "object"
+}

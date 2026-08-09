@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "description": "A required episode deliverable.",
+  "properties": {
+    "acceptance": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Acceptance",
+      "type": "array"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "workpaper",
+        "message",
+        "summary"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "workpaper_kind": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workpaper Kind"
+    }
+  },
+  "required": [
+    "kind",
+    "description",
+    "acceptance"
+  ],
+  "title": "DeliverableSpec",
+  "type": "object"
+}

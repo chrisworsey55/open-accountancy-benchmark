@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "description": "An episode's deterministic resource budget.",
+  "properties": {
+    "max_steps": {
+      "title": "Max Steps",
+      "type": "integer"
+    },
+    "max_tokens": {
+      "title": "Max Tokens",
+      "type": "integer"
+    },
+    "max_world_days": {
+      "title": "Max World Days",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "max_steps",
+    "max_tokens",
+    "max_world_days"
+  ],
+  "title": "Budget",
+  "type": "object"
+}

@@ -1,0 +1,29 @@
+{
+  "additionalProperties": false,
+  "description": "One requested item in an information request.",
+  "properties": {
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Refs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "description",
+    "refs"
+  ],
+  "title": "IrqItem",
+  "type": "object"
+}

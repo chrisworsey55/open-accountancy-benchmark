@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "description": "Descriptor for a send-message approval.",
+  "properties": {
+    "draft_message_id": {
+      "title": "Draft Message Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "send_external_message",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "draft_message_id"
+  ],
+  "title": "SendMessageDescriptor",
+  "type": "object"
+}

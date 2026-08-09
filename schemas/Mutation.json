@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "description": "A summary of one logical entity mutation caused by an action.",
+  "properties": {
+    "change": {
+      "enum": [
+        "created",
+        "updated",
+        "status_changed"
+      ],
+      "title": "Change",
+      "type": "string"
+    },
+    "entity_id": {
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "entity_kind": {
+      "title": "Entity Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "entity_kind",
+    "entity_id",
+    "change",
+    "summary"
+  ],
+  "title": "Mutation",
+  "type": "object"
+}

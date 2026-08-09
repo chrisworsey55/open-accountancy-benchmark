@@ -517,7 +517,7 @@ class EpisodeManifest(BaseModel):
     reference: ReferenceResult
     commercial_rationale: str
 
-# E.14 Workpapers (typed bodies)
+# E.14 Workpapers and review notes (typed bodies)
 class OutstandingItem(BaseModel):
     ref: str; amount_minor: int; reason: str; provenance_refs: list[str]
 class UnresolvedItem(BaseModel):
@@ -536,6 +536,32 @@ class ClassificationSummaryWorkpaper(BaseModel):
     rows: list[ClassificationRow]
 class QueryLogWorkpaper(BaseModel):
     kind: Literal["query_log"]; items: list[UnresolvedItem]
+WorkpaperBody = Annotated[Union[
+    BankReconWorkpaper,
+    ClassificationSummaryWorkpaper,
+    QueryLogWorkpaper,
+], Field(discriminator="kind")]
+class Workpaper(BaseModel):
+    id: str
+    engagement_id: str
+    task_id: str
+    body: WorkpaperBody
+    status: Literal["draft", "final"]
+    created_by: str
+    created_world_time: AwareDatetime
+    finalized_world_time: AwareDatetime | None = None
+    # finalized_world_time is required iff status is "final".
+class ReviewNote(BaseModel):
+    id: str
+    engagement_id: str
+    target_ref: str
+    author_id: str
+    body: str
+    created_world_time: AwareDatetime
+    status: Literal["open", "addressed"]
+    addressed_by: str | None = None
+    addressed_world_time: AwareDatetime | None = None
+    # addressed_by and addressed_world_time are required iff status is "addressed".
 
 # E.15 Approvals - typed descriptors
 ApprovalKind = Literal["post_journal","post_to_closed_period",
@@ -573,6 +599,8 @@ class Mutation(BaseModel):
 class Action(BaseModel):
     id: str; step: int; actor: str; tool: str
     input_digest: str; output_digest: str
+    input_payload: JsonValue; output_payload: JsonValue
+    # Each digest is sha256(canonical_json(the corresponding payload)).
     world_time_before: AwareDatetime; world_time_after: AwareDatetime
     mutations: list[Mutation]
 class ProvenanceRecord(BaseModel):

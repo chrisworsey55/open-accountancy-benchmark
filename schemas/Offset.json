@@ -1,0 +1,29 @@
+{
+  "additionalProperties": false,
+  "description": "A deterministic, pack-calendar-aware event offset.",
+  "properties": {
+    "business_days": {
+      "default": 0,
+      "title": "Business Days",
+      "type": "integer"
+    },
+    "hours": {
+      "default": 0,
+      "title": "Hours",
+      "type": "integer"
+    },
+    "minutes": {
+      "default": 0,
+      "title": "Minutes",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "Offset",
+  "type": "object"
+}

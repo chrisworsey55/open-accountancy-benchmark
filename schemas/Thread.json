@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "A client communication thread.",
+  "properties": {
+    "client_id": {
+      "title": "Client Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "message_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Message Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "client_id",
+    "subject",
+    "message_ids"
+  ],
+  "title": "Thread",
+  "type": "object"
+}

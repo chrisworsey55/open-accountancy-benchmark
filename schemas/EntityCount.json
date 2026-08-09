@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "EntityMatch": {
+      "additionalProperties": false,
+      "description": "An AND-combined predicate used by events and state assertions.",
+      "properties": {
+        "approval_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "post_journal",
+                "post_to_closed_period",
+                "send_external_message",
+                "close_period"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Kind"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "EntityMatch",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An expected number of matching entity records.",
+  "properties": {
+    "entity_kind": {
+      "title": "Entity Kind",
+      "type": "string"
+    },
+    "kind": {
+      "const": "entity_count",
+      "title": "Kind",
+      "type": "string"
+    },
+    "match": {
+      "$ref": "#/$defs/EntityMatch"
+    },
+    "n": {
+      "title": "N",
+      "type": "integer"
+    },
+    "op": {
+      "enum": [
+        "eq",
+        "gte",
+        "lte"
+      ],
+      "title": "Op",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "entity_kind",
+    "match",
+    "op",
+    "n"
+  ],
+  "title": "EntityCount",
+  "type": "object"
+}

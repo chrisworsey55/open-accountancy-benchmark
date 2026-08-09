@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "description": "An assertion that named records remain unchanged.",
+  "properties": {
+    "entity_kind": {
+      "title": "Entity Kind",
+      "type": "string"
+    },
+    "ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ids",
+      "type": "array"
+    },
+    "kind": {
+      "const": "no_mutation_of",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "entity_kind",
+    "ids"
+  ],
+  "title": "NoMutationOf",
+  "type": "object"
+}

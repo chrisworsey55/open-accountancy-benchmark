@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "description": "UK VAT registration details.",
+  "properties": {
+    "kind": {
+      "const": "uk",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "vat_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Vat Number"
+    },
+    "vat_registered": {
+      "title": "Vat Registered",
+      "type": "boolean"
+    },
+    "vat_scheme": {
+      "enum": [
+        "standard",
+        "flat_rate",
+        "none"
+      ],
+      "title": "Vat Scheme",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "vat_registered",
+    "vat_number",
+    "vat_scheme"
+  ],
+  "title": "UkTax",
+  "type": "object"
+}

@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "description": "An event payload granting or rejecting a requested approval.",
+  "properties": {
+    "decision": {
+      "enum": [
+        "granted",
+        "rejected"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "kind": {
+      "const": "approval_decision",
+      "title": "Kind",
+      "type": "string"
+    },
+    "note": {
+      "title": "Note",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "decision",
+    "note"
+  ],
+  "title": "ApprovalDecisionPayload",
+  "type": "object"
+}

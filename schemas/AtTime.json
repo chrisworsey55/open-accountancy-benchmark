@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "description": "An event trigger at an absolute world time.",
+  "properties": {
+    "kind": {
+      "const": "at_time",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "world_time": {
+      "format": "date-time",
+      "title": "World Time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "world_time"
+  ],
+  "title": "AtTime",
+  "type": "object"
+}

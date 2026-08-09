@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "An event payload announcing a deadline.",
+  "properties": {
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "kind": {
+      "const": "deadline",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    }
+  },
+  "required": [
+    "kind",
+    "description"
+  ],
+  "title": "DeadlinePayload",
+  "type": "object"
+}

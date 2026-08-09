@@ -1,0 +1,251 @@
+{
+  "$defs": {
+    "ApprovalDecisionPayload": {
+      "additionalProperties": false,
+      "description": "An event payload granting or rejecting a requested approval.",
+      "properties": {
+        "decision": {
+          "enum": [
+            "granted",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "kind": {
+          "const": "approval_decision",
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "decision",
+        "note"
+      ],
+      "title": "ApprovalDecisionPayload",
+      "type": "object"
+    },
+    "ClientReplyPayload": {
+      "additionalProperties": false,
+      "description": "An event payload delivering a fictional client reply.",
+      "properties": {
+        "attachment_fixture_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Attachment Fixture Refs",
+          "type": "array"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "client_reply",
+          "title": "Kind",
+          "type": "string"
+        },
+        "marks_irq": {
+          "anyOf": [
+            {
+              "enum": [
+                "responded",
+                "responded_partial"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marks Irq"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "thread_ref": {
+          "title": "Thread Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "thread_ref",
+        "body",
+        "attachment_fixture_refs"
+      ],
+      "title": "ClientReplyPayload",
+      "type": "object"
+    },
+    "DeadlinePayload": {
+      "additionalProperties": false,
+      "description": "An event payload announcing a deadline.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "const": "deadline",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        }
+      },
+      "required": [
+        "kind",
+        "description"
+      ],
+      "title": "DeadlinePayload",
+      "type": "object"
+    },
+    "NewBankFeedPayload": {
+      "additionalProperties": false,
+      "description": "An event payload introducing bank-feed transactions.",
+      "properties": {
+        "bank_account_id": {
+          "title": "Bank Account Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "new_bank_feed",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "txn_fixture_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Txn Fixture Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "bank_account_id",
+        "txn_fixture_refs"
+      ],
+      "title": "NewBankFeedPayload",
+      "type": "object"
+    },
+    "ReviewerNotePayload": {
+      "additionalProperties": false,
+      "description": "An event payload carrying a reviewer note and optional effect.",
+      "properties": {
+        "effect": {
+          "enum": [
+            "none",
+            "reopen_workpaper",
+            "set_task_status"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "effect_arg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effect Arg"
+        },
+        "kind": {
+          "const": "reviewer_note",
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_ref": {
+          "title": "Target Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_ref",
+        "note",
+        "effect"
+      ],
+      "title": "ReviewerNotePayload",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "approval_decision": "#/$defs/ApprovalDecisionPayload",
+      "client_reply": "#/$defs/ClientReplyPayload",
+      "deadline": "#/$defs/DeadlinePayload",
+      "new_bank_feed": "#/$defs/NewBankFeedPayload",
+      "reviewer_note": "#/$defs/ReviewerNotePayload"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ClientReplyPayload"
+    },
+    {
+      "$ref": "#/$defs/NewBankFeedPayload"
+    },
+    {
+      "$ref": "#/$defs/ApprovalDecisionPayload"
+    },
+    {
+      "$ref": "#/$defs/ReviewerNotePayload"
+    },
+    {
+      "$ref": "#/$defs/DeadlinePayload"
+    }
+  ]
+}

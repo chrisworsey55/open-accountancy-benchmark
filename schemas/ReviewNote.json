@@ -1,0 +1,81 @@
+{
+  "additionalProperties": false,
+  "description": "A reviewer note and its optional addressed state.",
+  "properties": {
+    "addressed_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Addressed By"
+    },
+    "addressed_world_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Addressed World Time"
+    },
+    "author_id": {
+      "title": "Author Id",
+      "type": "string"
+    },
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "created_world_time": {
+      "format": "date-time",
+      "title": "Created World Time",
+      "type": "string"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "addressed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "target_ref": {
+      "title": "Target Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "engagement_id",
+    "target_ref",
+    "author_id",
+    "body",
+    "created_world_time",
+    "status"
+  ],
+  "title": "ReviewNote",
+  "type": "object"
+}

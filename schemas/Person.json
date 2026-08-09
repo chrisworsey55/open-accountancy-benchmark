@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "description": "A person with a practice role.",
+  "properties": {
+    "acting_as": {
+      "anyOf": [
+        {
+          "enum": [
+            "client_contact",
+            "bookkeeper",
+            "staff_accountant",
+            "reviewer",
+            "partner",
+            "admin",
+            "agent"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Acting As"
+    },
+    "client_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Client Id"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "client_contact",
+        "bookkeeper",
+        "staff_accountant",
+        "reviewer",
+        "partner",
+        "admin",
+        "agent"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "role"
+  ],
+  "title": "Person",
+  "type": "object"
+}

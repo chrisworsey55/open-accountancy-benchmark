@@ -1,0 +1,79 @@
+{
+  "additionalProperties": false,
+  "description": "An immutable, SHA-256-addressed source document.",
+  "properties": {
+    "client_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Client Id"
+    },
+    "filename": {
+      "title": "Filename",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "invoice",
+        "bill",
+        "receipt",
+        "statement",
+        "engagement_letter",
+        "payroll_export",
+        "memo",
+        "other"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "mime": {
+      "title": "Mime",
+      "type": "string"
+    },
+    "received_world_time": {
+      "format": "date-time",
+      "title": "Received World Time",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "fixture",
+        "client_response"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "sha256",
+    "filename",
+    "mime",
+    "kind",
+    "client_id",
+    "source",
+    "received_world_time"
+  ],
+  "title": "Document",
+  "type": "object"
+}

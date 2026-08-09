@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "An assertion that unresolved items are made explicit.",
+  "properties": {
+    "kind": {
+      "const": "unresolved_flagged",
+      "title": "Kind",
+      "type": "string"
+    },
+    "min_items": {
+      "title": "Min Items",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "workpaper_kind": {
+      "title": "Workpaper Kind",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "workpaper_kind",
+    "min_items"
+  ],
+  "title": "UnresolvedFlagged",
+  "type": "object"
+}

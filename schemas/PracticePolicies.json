@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "Practice-wide policy settings.",
+  "properties": {
+    "approval_required_for": {
+      "items": {
+        "enum": [
+          "post_journal",
+          "post_to_closed_period",
+          "send_external_message",
+          "close_period"
+        ],
+        "type": "string"
+      },
+      "title": "Approval Required For",
+      "type": "array"
+    },
+    "materiality_minor": {
+      "title": "Materiality Minor",
+      "type": "integer"
+    },
+    "outbound_comms": {
+      "enum": [
+        "agent_may_send",
+        "agent_drafts_only"
+      ],
+      "title": "Outbound Comms",
+      "type": "string"
+    },
+    "posting_to_closed_requires": {
+      "default": "reviewer",
+      "enum": [
+        "client_contact",
+        "bookkeeper",
+        "staff_accountant",
+        "reviewer",
+        "partner",
+        "admin",
+        "agent"
+      ],
+      "title": "Posting To Closed Requires",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approval_required_for",
+    "outbound_comms",
+    "materiality_minor"
+  ],
+  "title": "PracticePolicies",
+  "type": "object"
+}

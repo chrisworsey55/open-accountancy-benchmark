@@ -1,0 +1,83 @@
+{
+  "additionalProperties": false,
+  "description": "An immutable-on-send message.",
+  "properties": {
+    "attachments": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Attachments",
+      "type": "array"
+    },
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "inbound",
+        "outbound"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "recipients": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recipients",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "sent"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "thread_id": {
+      "title": "Thread Id",
+      "type": "string"
+    },
+    "world_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "World Time"
+    }
+  },
+  "required": [
+    "id",
+    "thread_id",
+    "sender",
+    "recipients",
+    "status",
+    "world_time",
+    "body",
+    "attachments",
+    "direction"
+  ],
+  "title": "Message",
+  "type": "object"
+}

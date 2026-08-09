@@ -1,0 +1,55 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "A configuration record for a deterministic grader.",
+  "properties": {
+    "grader_id": {
+      "title": "Grader Id",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "layer": {
+      "enum": [
+        "task_completion",
+        "accounting",
+        "state",
+        "safety",
+        "provenance",
+        "efficiency"
+      ],
+      "title": "Layer",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Params",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "weight": {
+      "default": 1.0,
+      "title": "Weight",
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "grader_id",
+    "params",
+    "layer"
+  ],
+  "title": "DeterministicCriterion",
+  "type": "object"
+}

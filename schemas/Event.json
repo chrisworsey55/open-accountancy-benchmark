@@ -1,0 +1,465 @@
+{
+  "$defs": {
+    "AfterEntity": {
+      "additionalProperties": false,
+      "description": "An event trigger offset from the first matching entity.",
+      "properties": {
+        "entity_kind": {
+          "enum": [
+            "information_request",
+            "approval",
+            "message",
+            "workpaper",
+            "task"
+          ],
+          "title": "Entity Kind",
+          "type": "string"
+        },
+        "kind": {
+          "const": "after_entity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/EntityMatch"
+        },
+        "offset": {
+          "$ref": "#/$defs/Offset"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_kind",
+        "match",
+        "offset"
+      ],
+      "title": "AfterEntity",
+      "type": "object"
+    },
+    "ApprovalDecisionPayload": {
+      "additionalProperties": false,
+      "description": "An event payload granting or rejecting a requested approval.",
+      "properties": {
+        "decision": {
+          "enum": [
+            "granted",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "kind": {
+          "const": "approval_decision",
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "decision",
+        "note"
+      ],
+      "title": "ApprovalDecisionPayload",
+      "type": "object"
+    },
+    "AtTime": {
+      "additionalProperties": false,
+      "description": "An event trigger at an absolute world time.",
+      "properties": {
+        "kind": {
+          "const": "at_time",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "world_time": {
+          "format": "date-time",
+          "title": "World Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "world_time"
+      ],
+      "title": "AtTime",
+      "type": "object"
+    },
+    "ClientReplyPayload": {
+      "additionalProperties": false,
+      "description": "An event payload delivering a fictional client reply.",
+      "properties": {
+        "attachment_fixture_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Attachment Fixture Refs",
+          "type": "array"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "client_reply",
+          "title": "Kind",
+          "type": "string"
+        },
+        "marks_irq": {
+          "anyOf": [
+            {
+              "enum": [
+                "responded",
+                "responded_partial"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marks Irq"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "thread_ref": {
+          "title": "Thread Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "thread_ref",
+        "body",
+        "attachment_fixture_refs"
+      ],
+      "title": "ClientReplyPayload",
+      "type": "object"
+    },
+    "DeadlinePayload": {
+      "additionalProperties": false,
+      "description": "An event payload announcing a deadline.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "const": "deadline",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        }
+      },
+      "required": [
+        "kind",
+        "description"
+      ],
+      "title": "DeadlinePayload",
+      "type": "object"
+    },
+    "EntityMatch": {
+      "additionalProperties": false,
+      "description": "An AND-combined predicate used by events and state assertions.",
+      "properties": {
+        "approval_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "post_journal",
+                "post_to_closed_period",
+                "send_external_message",
+                "close_period"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Kind"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "EntityMatch",
+      "type": "object"
+    },
+    "NewBankFeedPayload": {
+      "additionalProperties": false,
+      "description": "An event payload introducing bank-feed transactions.",
+      "properties": {
+        "bank_account_id": {
+          "title": "Bank Account Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "new_bank_feed",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "txn_fixture_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Txn Fixture Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "bank_account_id",
+        "txn_fixture_refs"
+      ],
+      "title": "NewBankFeedPayload",
+      "type": "object"
+    },
+    "Offset": {
+      "additionalProperties": false,
+      "description": "A deterministic, pack-calendar-aware event offset.",
+      "properties": {
+        "business_days": {
+          "default": 0,
+          "title": "Business Days",
+          "type": "integer"
+        },
+        "hours": {
+          "default": 0,
+          "title": "Hours",
+          "type": "integer"
+        },
+        "minutes": {
+          "default": 0,
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "Offset",
+      "type": "object"
+    },
+    "ReviewerNotePayload": {
+      "additionalProperties": false,
+      "description": "An event payload carrying a reviewer note and optional effect.",
+      "properties": {
+        "effect": {
+          "enum": [
+            "none",
+            "reopen_workpaper",
+            "set_task_status"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "effect_arg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effect Arg"
+        },
+        "kind": {
+          "const": "reviewer_note",
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_ref": {
+          "title": "Target Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_ref",
+        "note",
+        "effect"
+      ],
+      "title": "ReviewerNotePayload",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A scheduled world event.",
+  "properties": {
+    "fired": {
+      "default": false,
+      "title": "Fired",
+      "type": "boolean"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "payload": {
+      "discriminator": {
+        "mapping": {
+          "approval_decision": "#/$defs/ApprovalDecisionPayload",
+          "client_reply": "#/$defs/ClientReplyPayload",
+          "deadline": "#/$defs/DeadlinePayload",
+          "new_bank_feed": "#/$defs/NewBankFeedPayload",
+          "reviewer_note": "#/$defs/ReviewerNotePayload"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ClientReplyPayload"
+        },
+        {
+          "$ref": "#/$defs/NewBankFeedPayload"
+        },
+        {
+          "$ref": "#/$defs/ApprovalDecisionPayload"
+        },
+        {
+          "$ref": "#/$defs/ReviewerNotePayload"
+        },
+        {
+          "$ref": "#/$defs/DeadlinePayload"
+        }
+      ],
+      "title": "Payload"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trigger": {
+      "discriminator": {
+        "mapping": {
+          "after_entity": "#/$defs/AfterEntity",
+          "at_time": "#/$defs/AtTime"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AtTime"
+        },
+        {
+          "$ref": "#/$defs/AfterEntity"
+        }
+      ],
+      "title": "Trigger"
+    }
+  },
+  "required": [
+    "id",
+    "trigger",
+    "payload"
+  ],
+  "title": "Event",
+  "type": "object"
+}

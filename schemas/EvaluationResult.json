@@ -1,0 +1,242 @@
+{
+  "$defs": {
+    "CriterionResult": {
+      "additionalProperties": false,
+      "description": "A deterministic or qualitative criterion result.",
+      "properties": {
+        "criterion_id": {
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "passed",
+        "score",
+        "detail",
+        "evidence_refs"
+      ],
+      "title": "CriterionResult",
+      "type": "object"
+    },
+    "CriticalFailureHit": {
+      "additionalProperties": false,
+      "description": "A critical failure that zeroes an evaluation result.",
+      "properties": {
+        "cf_id": {
+          "title": "Cf Id",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cf_id",
+        "detail",
+        "evidence_refs"
+      ],
+      "title": "CriticalFailureHit",
+      "type": "object"
+    },
+    "LayerScores": {
+      "additionalProperties": false,
+      "description": "Score values for the evaluation layers.",
+      "properties": {
+        "accounting": {
+          "title": "Accounting",
+          "type": "number"
+        },
+        "communication": {
+          "title": "Communication",
+          "type": "number"
+        },
+        "efficiency": {
+          "title": "Efficiency",
+          "type": "number"
+        },
+        "provenance": {
+          "title": "Provenance",
+          "type": "number"
+        },
+        "safety": {
+          "title": "Safety",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "number"
+        },
+        "task_completion": {
+          "title": "Task Completion",
+          "type": "number"
+        }
+      },
+      "required": [
+        "task_completion",
+        "accounting",
+        "state",
+        "safety",
+        "provenance",
+        "communication",
+        "efficiency"
+      ],
+      "title": "LayerScores",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "description": "Resource use accumulated during an episode run.",
+      "properties": {
+        "cost_usd": {
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "latency_s": {
+          "title": "Latency S",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "steps": {
+          "title": "Steps",
+          "type": "integer"
+        },
+        "tokens_in": {
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "title": "Tokens Out",
+          "type": "integer"
+        },
+        "world_days_elapsed": {
+          "title": "World Days Elapsed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "steps",
+        "tokens_in",
+        "tokens_out",
+        "cost_usd",
+        "latency_s",
+        "world_days_elapsed"
+      ],
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The stable per-run evaluation result schema.",
+  "properties": {
+    "all_pass": {
+      "title": "All Pass",
+      "type": "boolean"
+    },
+    "criterion_results": {
+      "items": {
+        "$ref": "#/$defs/CriterionResult"
+      },
+      "title": "Criterion Results",
+      "type": "array"
+    },
+    "critical_failures": {
+      "items": {
+        "$ref": "#/$defs/CriticalFailureHit"
+      },
+      "title": "Critical Failures",
+      "type": "array"
+    },
+    "episode_id": {
+      "title": "Episode Id",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "overall": {
+      "title": "Overall",
+      "type": "number"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scores": {
+      "$ref": "#/$defs/LayerScores"
+    },
+    "usage": {
+      "$ref": "#/$defs/Usage"
+    }
+  },
+  "required": [
+    "episode_id",
+    "run_id",
+    "model",
+    "critical_failures",
+    "criterion_results",
+    "scores",
+    "overall",
+    "all_pass",
+    "usage"
+  ],
+  "title": "EvaluationResult",
+  "type": "object"
+}
