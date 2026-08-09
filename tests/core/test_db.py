@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from mirrorfirm.core.db import SQLiteWorldView, WorldStore
+from mirrorfirm.core.db import (
+    SQLiteWorldView,
+    WorldStore,
+    immutable_constraints_present,
+)
 from mirrorfirm.core.digest import logical_state_digest
 from mirrorfirm.core.models import (
     Action,
@@ -166,6 +170,14 @@ def test_views_are_opened_read_only(tmp_path: Path) -> None:
     with SQLiteWorldView.open(database_path) as view:
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             view._connection.execute("DELETE FROM records")  # noqa: SLF001
+
+
+def test_compiled_store_exposes_all_i2_immutability_constraints(tmp_path: Path) -> None:
+    database_path = tmp_path / "world.db"
+    with WorldStore.create(database_path):
+        pass
+
+    assert immutable_constraints_present(database_path)
 
 
 def test_immutable_records_cannot_be_overwritten_or_deleted(tmp_path: Path) -> None:

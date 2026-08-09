@@ -4,6 +4,7 @@ from .domain import (
     MODEL_TYPES,
     Account,
     AccountBalance,
+    AccountingPeriod,
     Action,
     AfterEntity,
     AmountMinor,
@@ -88,6 +89,7 @@ from .domain import (
 __all__ = [
     "Account",
     "AccountBalance",
+    "AccountingPeriod",
     "Action",
     "AfterEntity",
     "AmountMinor",

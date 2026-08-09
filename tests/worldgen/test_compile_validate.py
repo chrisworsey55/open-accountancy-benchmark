@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import shutil
 from datetime import date
 from pathlib import Path
 
+import pytest
 import yaml
 
 from mirrorfirm.core.db import SQLiteWorldView
 from mirrorfirm.core.models import Client, Journal
-from mirrorfirm.worldgen import compile_world, validate_world
+from mirrorfirm.worldgen import WorldCompileError, compile_world, validate_world
 
 
 def _write_yaml(path: Path, content: object) -> None:
@@ -231,6 +234,14 @@ def _world_fixture(root: Path) -> Path:
             ],
         },
     )
+    documents = root / "documents"
+    documents.mkdir()
+    content = b"Fictional fixture receipt\n"
+    (documents / "fictional-receipt.txt").write_bytes(content)
+    records = yaml.safe_load((root / "records.yaml").read_text(encoding="utf-8"))
+    records["Document"][0]["filename"] = "documents/fictional-receipt.txt"
+    records["Document"][0]["sha256"] = hashlib.sha256(content).hexdigest()
+    _write_yaml(root / "records.yaml", records)
     return root
 
 
@@ -316,3 +327,58 @@ def test_structural_validation_rejects_closed_period_posting_without_approval(
 
 def test_calendar_fixture_dates_are_real_dates() -> None:
     assert date(2026, 5, 20).isoformat() == "2026-05-20"
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "replacement", "expected_message"),
+    [
+        (
+            "documents/brightpath-may-001.txt",
+            "tampered fictional source\n",
+            "content hash",
+        ),
+        (
+            "bank-feeds/brightpath-may.csv",
+            "date,amount_minor,counterparty,reference\n2026-05-02,-1,Study Supplies,BP-MAY-001\n",
+            "does not match its compiled transactions",
+        ),
+        (
+            "opening-balances.csv",
+            "entity_id,account_code,amount_minor\nent-brightpath,1000,1\nent-harper,1000,85000\nent-kestrel,1000,110000\n",
+            "does not match posted opening journal balances",
+        ),
+    ],
+)
+def test_authoritative_sources_reject_tampering(
+    tmp_path: Path, relative_path: str, replacement: str, expected_message: str
+) -> None:
+    source = Path(__file__).resolve().parents[2] / "worlds" / "uk-wyrley-brook"
+    world = tmp_path / "tampered-world"
+    shutil.copytree(source, world)
+    (world / relative_path).write_text(replacement, encoding="utf-8")
+
+    with pytest.raises(WorldCompileError, match=expected_message):
+        compile_world(world, tmp_path / "world.db")
+
+
+def test_structural_validation_checks_irq_and_embedded_references(
+    tmp_path: Path,
+) -> None:
+    world = _world_fixture(tmp_path / "fixture-world")
+    records = yaml.safe_load((world / "records.yaml").read_text(encoding="utf-8"))
+    records["InformationRequest"] = [
+        {
+            "id": "irq-fixture",
+            "client_id": "cli-fixture",
+            "thread_id": None,
+            "items": [{"description": "Missing proof", "refs": ["doc-missing"]}],
+            "status": "draft",
+        }
+    ]
+    _write_yaml(world / "records.yaml", records)
+
+    report = validate_world(world)
+
+    assert report.gates[-1].gate_id == "invariants"
+    assert report.gates[-1].status == "failed"
+    assert "I-3" in report.gates[-1].detail

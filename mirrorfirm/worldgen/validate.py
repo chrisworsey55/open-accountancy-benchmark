@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 
-from mirrorfirm.core.db import SQLiteWorldView, WorldView
+from mirrorfirm.core.db import SQLiteWorldView, WorldView, immutable_constraints_present
 from mirrorfirm.core.models import (
+    Account,
+    AccountingPeriod,
     Action,
     AfterEntity,
     Approval,
+    BankAccount,
     BankReconWorkpaper,
     BankTransaction,
+    ClassificationSummaryWorkpaper,
     Client,
     Document,
     Engagement,
@@ -25,9 +30,11 @@ from mirrorfirm.core.models import (
     Person,
     Practice,
     ProvenanceRecord,
+    QueryLogWorkpaper,
     ReviewNote,
     Task,
     Thread,
+    VersionedModel,
     Workpaper,
     WorldManifest,
 )
@@ -93,6 +100,13 @@ def validate_world(world_dir: str | Path) -> WorldValidationResult:
 
         with SQLiteWorldView.open(compiled.database_path) as view:
             violations = validate_structural_invariants(view, fixtures.manifest)
+            if not immutable_constraints_present(compiled.database_path):
+                violations = (
+                    *violations,
+                    InvariantViolation(
+                        "I-2", "compiled database is missing an immutable-state trigger"
+                    ),
+                )
             if violations:
                 detail = "; ".join(
                     f"{violation.invariant_id}: {violation.detail}"
@@ -156,10 +170,10 @@ def validate_structural_invariants(
     clients = view.list(Client)
     entities = view.list(Entity)
     engagements = view.list(Engagement)
-    periods = view.list(_model("AccountingPeriod"))
-    accounts = view.list(_model("Account"))
+    periods = view.list(AccountingPeriod)
+    accounts = view.list(Account)
     journals = view.list(Journal)
-    bank_accounts = view.list(_model("BankAccount"))
+    bank_accounts = view.list(BankAccount)
     bank_transactions = view.list(BankTransaction)
     documents = view.list(Document)
     threads = view.list(Thread)
@@ -217,7 +231,16 @@ def validate_structural_invariants(
     _check_classification_links(violations, journals, bank_transactions)
     _check_reconciliations(violations, workpapers, all_ids)
     _check_client_isolation(
-        violations, clients, documents, threads, messages, information_requests
+        violations,
+        clients,
+        engagements,
+        tasks,
+        workpapers,
+        documents,
+        threads,
+        messages,
+        information_requests,
+        events,
     )
     _check_time_monotonicity(violations, actions, events, manifest.start_world_time)
     return tuple(violations)
@@ -230,37 +253,33 @@ def _failed(
     return WorldValidationResult(root, tuple(gates))
 
 
-def _model(name: str):
-    from mirrorfirm.core.models import MODEL_TYPES
-
-    return next(model_type for model_type in MODEL_TYPES if model_type.__name__ == name)
-
-
 def _known_record_ids(view: WorldView) -> set[str]:
     identifiers: set[str] = set()
-    for model_name in (
-        "Practice",
-        "Person",
-        "Client",
-        "Entity",
-        "Engagement",
-        "AccountingPeriod",
-        "Account",
-        "Journal",
-        "BankAccount",
-        "BankTransaction",
-        "Document",
-        "Thread",
-        "Message",
-        "InformationRequest",
-        "Task",
-        "Workpaper",
-        "ReviewNote",
-        "Approval",
-        "ProvenanceRecord",
-    ):
-        for record in view.list(_model(model_name)):
-            identifiers.add(record.id)
+    records: tuple[VersionedModel, ...] = (
+        *view.list(Practice),
+        *view.list(Person),
+        *view.list(Client),
+        *view.list(Entity),
+        *view.list(Engagement),
+        *view.list(AccountingPeriod),
+        *view.list(Account),
+        *view.list(Journal),
+        *view.list(BankAccount),
+        *view.list(BankTransaction),
+        *view.list(Document),
+        *view.list(Thread),
+        *view.list(Message),
+        *view.list(InformationRequest),
+        *view.list(Task),
+        *view.list(Workpaper),
+        *view.list(ReviewNote),
+        *view.list(Approval),
+        *view.list(ProvenanceRecord),
+    )
+    for record in records:
+        identifier = getattr(record, "id", None)
+        if isinstance(identifier, str):
+            identifiers.add(identifier)
     identifiers.update(action.id for action in view.actions())
     identifiers.update(event.id for event in view.events())
     return identifiers
@@ -273,10 +292,10 @@ def _check_referential_integrity(
     clients: tuple[Client, ...],
     entities: tuple[Entity, ...],
     engagements: tuple[Engagement, ...],
-    periods: tuple[object, ...],
-    accounts: tuple[object, ...],
+    periods: tuple[AccountingPeriod, ...],
+    accounts: tuple[Account, ...],
     journals: tuple[Journal, ...],
-    bank_accounts: tuple[object, ...],
+    bank_accounts: tuple[BankAccount, ...],
     bank_transactions: tuple[BankTransaction, ...],
     documents: tuple[Document, ...],
     threads: tuple[Thread, ...],
@@ -292,7 +311,9 @@ def _check_referential_integrity(
     all_ids: set[str],
 ) -> None:
     def require(reference: str | None, candidates: set[str], context: str) -> None:
-        if reference is not None and reference.startswith("${entity."):
+        if reference in (None, "per-sys") or (
+            reference is not None and reference.startswith("${entity.")
+        ):
             return
         if reference is not None and reference not in candidates:
             violations.append(
@@ -363,6 +384,15 @@ def _check_referential_integrity(
             require(message_id, message_ids, f"thread {thread.id!r}")
     for message in messages:
         require(message.thread_id, thread_ids, f"message {message.id!r}")
+        owning_thread = next(
+            (thread for thread in threads if thread.id == message.thread_id), None
+        )
+        if owning_thread is not None and message.id not in owning_thread.message_ids:
+            violations.append(
+                InvariantViolation(
+                    "I-3", f"message {message.id!r} is absent from its thread"
+                )
+            )
         require(message.sender, person_ids, f"message {message.id!r}")
         for recipient in message.recipients:
             require(recipient, person_ids, f"message {message.id!r}")
@@ -371,6 +401,9 @@ def _check_referential_integrity(
     for request in information_requests:
         require(request.client_id, client_ids, f"information request {request.id!r}")
         require(request.thread_id, thread_ids, f"information request {request.id!r}")
+        for irq_item in request.items:
+            for reference in irq_item.refs:
+                require(reference, all_ids, f"information request {request.id!r}")
     for task in tasks:
         require(task.engagement_id, engagement_ids, f"task {task.id!r}")
         require(task.assignee, person_ids, f"task {task.id!r}")
@@ -379,6 +412,33 @@ def _check_referential_integrity(
         require(workpaper.engagement_id, engagement_ids, f"workpaper {workpaper.id!r}")
         require(workpaper.task_id, task_ids, f"workpaper {workpaper.id!r}")
         require(workpaper.created_by, person_ids, f"workpaper {workpaper.id!r}")
+        body = workpaper.body
+        if isinstance(body, BankReconWorkpaper):
+            require(
+                body.bank_account_id, bank_account_ids, f"workpaper {workpaper.id!r}"
+            )
+            require(body.period_id, period_ids, f"workpaper {workpaper.id!r}")
+            for recon_item in body.outstanding:
+                for reference in recon_item.provenance_refs:
+                    require(reference, all_ids, f"workpaper {workpaper.id!r}")
+            for unresolved_item in body.unresolved:
+                for reference in unresolved_item.provenance_refs:
+                    require(reference, all_ids, f"workpaper {workpaper.id!r}")
+        elif isinstance(body, ClassificationSummaryWorkpaper):
+            require(body.period_id, period_ids, f"workpaper {workpaper.id!r}")
+            for row in body.rows:
+                require(
+                    row.bank_transaction_id,
+                    transaction_ids,
+                    f"workpaper {workpaper.id!r}",
+                )
+                require(row.account_id, account_ids, f"workpaper {workpaper.id!r}")
+                for reference in row.provenance_refs:
+                    require(reference, all_ids, f"workpaper {workpaper.id!r}")
+        elif isinstance(body, QueryLogWorkpaper):
+            for unresolved_item in body.items:
+                for reference in unresolved_item.provenance_refs:
+                    require(reference, all_ids, f"workpaper {workpaper.id!r}")
     for note in review_notes:
         require(note.engagement_id, engagement_ids, f"review note {note.id!r}")
         require(note.target_ref, all_ids, f"review note {note.id!r}")
@@ -389,6 +449,12 @@ def _check_referential_integrity(
         for reference in approval.provenance_refs:
             require(reference, all_ids, f"approval {approval.id!r}")
         descriptor = approval.action_descriptor
+        if descriptor.kind != approval.kind:
+            violations.append(
+                InvariantViolation(
+                    "I-3", f"approval {approval.id!r} kind disagrees with descriptor"
+                )
+            )
         if hasattr(descriptor, "journal_id"):
             require(descriptor.journal_id, journal_ids, f"approval {approval.id!r}")
         if hasattr(descriptor, "period_id"):
@@ -424,12 +490,34 @@ def _check_referential_integrity(
 def _check_posting_periods(
     violations: list[InvariantViolation],
     journals: tuple[Journal, ...],
-    periods: tuple[object, ...],
+    periods: tuple[AccountingPeriod, ...],
     approvals: tuple[Approval, ...],
 ) -> None:
     for journal in journals:
         if journal.status != "posted":
             continue
+        approval = next(
+            (
+                candidate
+                for candidate in approvals
+                if candidate.id == journal.approval_id
+            ),
+            None,
+        )
+        if approval is None or approval.status != "granted":
+            violations.append(
+                InvariantViolation(
+                    "I-4",
+                    f"posted journal {journal.id!r} lacks its granted approval",
+                )
+            )
+        elif getattr(approval.action_descriptor, "journal_id", None) != journal.id:
+            violations.append(
+                InvariantViolation(
+                    "I-4",
+                    f"posted journal {journal.id!r} approval targets another journal",
+                )
+            )
         matching_periods = [
             period
             for period in periods
@@ -452,7 +540,7 @@ def _check_posting_periods(
                     )
                 )
             if period.status == "closed" and not _has_closed_period_approval(
-                approvals, journal.id, period.id
+                approvals, journal.id, period.id, journal.approval_id
             ):
                 violations.append(
                     InvariantViolation(
@@ -463,10 +551,14 @@ def _check_posting_periods(
 
 
 def _has_closed_period_approval(
-    approvals: tuple[Approval, ...], journal_id: str, period_id: str
+    approvals: tuple[Approval, ...],
+    journal_id: str,
+    period_id: str,
+    approval_id: str | None,
 ) -> bool:
     return any(
-        approval.status == "granted"
+        approval.id == approval_id
+        and approval.status == "granted"
         and approval.kind == "post_to_closed_period"
         and getattr(approval.action_descriptor, "journal_id", None) == journal_id
         and getattr(approval.action_descriptor, "period_id", None) == period_id
@@ -550,14 +642,24 @@ def _check_reconciliations(
 def _check_client_isolation(
     violations: list[InvariantViolation],
     clients: tuple[Client, ...],
+    engagements: tuple[Engagement, ...],
+    tasks: tuple[Task, ...],
+    workpapers: tuple[Workpaper, ...],
     documents: tuple[Document, ...],
     threads: tuple[Thread, ...],
     messages: tuple[Message, ...],
     requests: tuple[InformationRequest, ...],
+    events: tuple[Event, ...],
 ) -> None:
     client_ids = {client.id for client in clients}
     document_clients = {document.id: document.client_id for document in documents}
     thread_clients = {thread.id: thread.client_id for thread in threads}
+    engagement_clients = {
+        engagement.id: engagement.client_id for engagement in engagements
+    }
+    task_clients = {
+        task.id: engagement_clients.get(task.engagement_id) for task in tasks
+    }
     for request in requests:
         if (
             request.thread_id is not None
@@ -579,6 +681,47 @@ def _check_client_isolation(
                         f"message {message.id!r} attaches another client's document",
                     )
                 )
+    for workpaper in workpapers:
+        if task_clients.get(workpaper.task_id) != engagement_clients.get(
+            workpaper.engagement_id
+        ):
+            violations.append(
+                InvariantViolation(
+                    "I-7", f"workpaper {workpaper.id!r} crosses engagement/client scope"
+                )
+            )
+    for event in events:
+        if (
+            isinstance(event.trigger, AfterEntity)
+            and event.trigger.match.client_id is None
+        ):
+            violations.append(
+                InvariantViolation(
+                    "I-7", f"event {event.id!r} lacks an engagement/client selector"
+                )
+            )
+        payload = event.payload
+        if hasattr(payload, "thread_ref") and not payload.thread_ref.startswith(
+            "${entity."
+        ):
+            if payload.thread_ref in thread_clients and isinstance(
+                event.trigger, AfterEntity
+            ):
+                if thread_clients[payload.thread_ref] != event.trigger.match.client_id:
+                    violations.append(
+                        InvariantViolation(
+                            "I-7", f"event {event.id!r} targets another client's thread"
+                        )
+                    )
+        if hasattr(payload, "task_id") and payload.task_id is not None:
+            if isinstance(event.trigger, AfterEntity) and (
+                task_clients.get(payload.task_id) != event.trigger.match.client_id
+            ):
+                violations.append(
+                    InvariantViolation(
+                        "I-7", f"event {event.id!r} targets another client's task"
+                    )
+                )
     if not client_ids:
         violations.append(InvariantViolation("I-7", "world has no client scope"))
 
@@ -587,11 +730,11 @@ def _check_time_monotonicity(
     violations: list[InvariantViolation],
     actions: tuple[Action, ...],
     events: tuple[Event, ...],
-    start_time,
+    start_time: datetime,
 ) -> None:
     previous_time = start_time
     for action in actions:
-        if action.world_time_before < previous_time:
+        if action.world_time_after < previous_time:
             violations.append(
                 InvariantViolation(
                     "I-8", f"action {action.id!r} moves world_time backward"

@@ -12,8 +12,9 @@ import builtins
 import json
 import shutil
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Final, Literal, Protocol, Self, TypeVar, cast
+from typing import Final, Iterator, Literal, Protocol, Self, TypeVar, cast
 
 from .digest import logical_state_digest
 from .models import (
@@ -35,6 +36,18 @@ _PERSISTED_MODEL_TYPES: Final[tuple[type[VersionedModel], ...]] = tuple(
 )
 _REQUIRED_TABLES: Final = frozenset(
     {"metadata", "records", "actions", "events", "event_firings"}
+)
+_IMMUTABILITY_TRIGGERS: Final = frozenset(
+    {
+        "actions_no_update",
+        "actions_no_delete",
+        "events_no_update",
+        "events_no_delete",
+        "event_firings_no_update",
+        "event_firings_no_delete",
+        "records_no_update_when_immutable",
+        "records_no_delete_when_immutable",
+    }
 )
 
 
@@ -133,6 +146,7 @@ class WorldStore:
     def __init__(self, path: Path, connection: sqlite3.Connection) -> None:
         self._path = path
         self._connection = connection
+        self._transaction_depth = 0
 
     @classmethod
     def create(cls, path: str | Path) -> Self:
@@ -175,6 +189,9 @@ class WorldStore:
     def close(self) -> None:
         """Commit completed work and close the writable database handle."""
 
+        if self._transaction_depth:
+            self._connection.rollback()
+            self._transaction_depth = 0
         self._connection.commit()
         self._connection.close()
 
@@ -196,7 +213,11 @@ class WorldStore:
             self.append_action(record)
             return
         if isinstance(record, Event):
-            _save_event(self._connection, record)
+            _save_event(
+                self._connection,
+                record,
+                commit=self._transaction_depth == 0,
+            )
             return
 
         model_type = type(record)
@@ -211,7 +232,7 @@ class WorldStore:
             """,
             (model_type.__name__, entity_id, payload),
         )
-        self._connection.commit()
+        self._commit_if_autocommit()
 
     def load(self, model_type: type[ModelT], entity_id: str) -> ModelT:
         """Load one record or raise ``KeyError`` when it does not exist."""
@@ -225,13 +246,13 @@ class WorldStore:
         """Append one audit action; update and deletion are schema-prohibited."""
 
         _append_log_record(self._connection, "actions", action)
-        self._connection.commit()
+        self._commit_if_autocommit()
 
     def append_event(self, event: Event) -> None:
         """Append one unfired scheduled event; its schedule is immutable thereafter."""
 
         _append_log_record(self._connection, "events", event)
-        self._connection.commit()
+        self._commit_if_autocommit()
 
     def mark_event_fired(self, event_id: str) -> None:
         """Append an event firing without mutating the immutable event schedule."""
@@ -244,13 +265,42 @@ class WorldStore:
         self._connection.execute(
             "INSERT INTO event_firings (event_id) VALUES (?)", (event_id,)
         )
-        self._connection.commit()
+        self._commit_if_autocommit()
 
     def view(self) -> SQLiteWorldView:
         """Open a separate read-only query view over the committed database state."""
 
-        self._connection.commit()
+        self._commit_if_autocommit()
         return SQLiteWorldView.open(self._path)
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Atomically persist a tool's domain mutations and its audit Action.
+
+        Nested callers share one SQLite transaction.  The store deliberately keeps
+        read views separate and read-only; code which needs to observe its own
+        uncommitted writes must retain the typed value it has just constructed.
+        """
+
+        outermost = self._transaction_depth == 0
+        if outermost:
+            self._connection.execute("BEGIN")
+        self._transaction_depth += 1
+        try:
+            yield
+        except BaseException:
+            self._transaction_depth -= 1
+            if outermost:
+                self._connection.rollback()
+            raise
+        else:
+            self._transaction_depth -= 1
+            if outermost:
+                self._connection.commit()
+
+    def _commit_if_autocommit(self) -> None:
+        if self._transaction_depth == 0:
+            self._connection.commit()
 
     def logical_state(self) -> dict[str, list[object]]:
         """Return the current logical state without SQLite implementation details."""
@@ -437,6 +487,22 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
         raise ValueError("not a compatible Mirror Firm world database")
 
 
+def immutable_constraints_present(path: str | Path) -> bool:
+    """Check that a compiled database retains every I-2 immutability trigger."""
+
+    database_path = Path(path).resolve()
+    if not database_path.is_file():
+        return False
+    connection = sqlite3.connect(f"{database_path.as_uri()}?mode=ro", uri=True)
+    try:
+        trigger_rows = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+        ).fetchall()
+    finally:
+        connection.close()
+    return _IMMUTABILITY_TRIGGERS <= {str(row[0]) for row in trigger_rows}
+
+
 def _require_record_model(model_type: type[VersionedModel]) -> None:
     if model_type not in _PERSISTED_MODEL_TYPES:
         raise TypeError(
@@ -487,13 +553,16 @@ def _append_log_record(
     )
 
 
-def _save_event(connection: sqlite3.Connection, event: Event) -> None:
+def _save_event(
+    connection: sqlite3.Connection, event: Event, *, commit: bool = True
+) -> None:
     """Persist an event creation or its one append-only fired transition."""
 
     existing = _get_record(connection, Event, event.id)
     if existing is None:
         _append_log_record(connection, "events", event)
-        connection.commit()
+        if commit:
+            connection.commit()
         return
 
     scheduled = existing.model_copy(update={"fired": False})
@@ -502,7 +571,8 @@ def _save_event(connection: sqlite3.Connection, event: Event) -> None:
         connection.execute(
             "INSERT INTO event_firings (event_id) VALUES (?)", (event.id,)
         )
-        connection.commit()
+        if commit:
+            connection.commit()
         return
     raise ValueError("event schedules are immutable and may fire only once")
 

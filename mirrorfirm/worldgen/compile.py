@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import csv
+import hashlib
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Iterable, cast
 
 import yaml
 from pydantic import ValidationError
@@ -12,8 +15,11 @@ from pydantic import ValidationError
 from mirrorfirm.core.db import WorldStore
 from mirrorfirm.core.models import (
     MODEL_TYPES,
+    Account,
+    BankTransaction,
     ClassificationSummaryWorkpaper,
     Client,
+    Document,
     Event,
     Journal,
     VersionedModel,
@@ -63,7 +69,10 @@ def load_world_fixtures(world_dir: str | Path) -> LoadedWorldFixtures:
 
     root = Path(world_dir).resolve()
     manifest_path = root / "world.yaml"
-    manifest = _parse_one(WorldManifest, _read_yaml(manifest_path), manifest_path)
+    manifest = cast(
+        WorldManifest,
+        _parse_one(WorldManifest, _read_yaml(manifest_path), manifest_path),
+    )
     practice = _parse_one(
         _model("Practice"),
         _read_yaml(root / manifest.practice_file),
@@ -99,10 +108,12 @@ def load_world_fixtures(world_dir: str | Path) -> LoadedWorldFixtures:
     except TrapRegisterError as error:
         raise WorldCompileError(str(error)) from error
 
+    normalised_records = _normalise_records(records)
+    _validate_authoritative_sources(root, normalised_records)
     return LoadedWorldFixtures(
         root=root,
         manifest=manifest,
-        records=_normalise_records(records),
+        records=normalised_records,
         traps=traps,
     )
 
@@ -235,3 +246,143 @@ def _validate_pack_data(fixtures: LoadedWorldFixtures) -> None:
         ):
             for row in record.body.rows:
                 pack.validate_tax_tag(row.tax)
+
+
+def _validate_authoritative_sources(
+    root: Path, records: Iterable[VersionedModel]
+) -> None:
+    """Bind authored source files to the logical records they compile into.
+
+    The fixture YAML names the entities, but source documents, bank feeds, and
+    opening-balance CSV remain authoritative evidence.  A change to any of those
+    files must therefore either change the compiled state or stop compilation; it
+    must never silently leave the same digest behind.
+    """
+
+    records_tuple = tuple(records)
+    _validate_document_hashes(root, records_tuple)
+    _validate_bank_feeds(root, records_tuple)
+    _validate_opening_balances(root, records_tuple)
+
+
+def _validate_document_hashes(root: Path, records: tuple[VersionedModel, ...]) -> None:
+    documents = [record for record in records if isinstance(record, Document)]
+    if not documents:
+        return
+    document_root = (root / "documents").resolve()
+    if not document_root.exists():
+        raise WorldCompileError("document records require a documents source directory")
+    for document in documents:
+        path = (root / document.filename).resolve()
+        if not path.is_relative_to(root) or not path.is_file():
+            raise WorldCompileError(f"document {document.id!r} source file is missing")
+        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual_hash != document.sha256:
+            raise WorldCompileError(
+                f"document {document.id!r} content hash does not match records.yaml"
+            )
+
+
+def _validate_bank_feeds(root: Path, records: tuple[VersionedModel, ...]) -> None:
+    feed_root = root / "bank-feeds"
+    if not feed_root.exists():
+        return
+    files = sorted(feed_root.glob("*.csv"))
+    if not files:
+        raise WorldCompileError("bank-feeds directory must contain CSV source files")
+    transactions = [record for record in records if isinstance(record, BankTransaction)]
+    expected_by_fixture_key: dict[str, Counter[tuple[str, int, str, str]]] = {}
+    for transaction in transactions:
+        parts = transaction.id.split("-", 2)
+        if len(parts) != 3 or parts[0] != "btx":
+            raise WorldCompileError(
+                f"bank transaction {transaction.id!r} must use btx-<fixture>-<ordinal>"
+            )
+        expected_by_fixture_key.setdefault(parts[1], Counter())[
+            (
+                transaction.date.isoformat(),
+                transaction.amount_minor,
+                transaction.counterparty,
+                transaction.reference,
+            )
+        ] += 1
+    actual_keys: set[str] = set()
+    for path in files:
+        fixture_key = path.stem.split("-", 1)[0]
+        actual_keys.add(fixture_key)
+        try:
+            with path.open(newline="", encoding="utf-8") as source:
+                reader = csv.DictReader(source)
+                required = {"date", "amount_minor", "counterparty", "reference"}
+                if reader.fieldnames is None or set(reader.fieldnames) != required:
+                    raise WorldCompileError(
+                        f"bank feed {path.name!r} must have exactly {sorted(required)!r}"
+                    )
+                rows: Counter[tuple[str, int, str, str]] = Counter()
+                for row in reader:
+                    rows[
+                        (
+                            str(row["date"]),
+                            int(str(row["amount_minor"])),
+                            str(row["counterparty"]),
+                            str(row["reference"]),
+                        )
+                    ] += 1
+        except (OSError, ValueError, csv.Error) as error:
+            raise WorldCompileError(f"bank feed {path.name!r} is invalid") from error
+        if rows != expected_by_fixture_key.get(fixture_key, Counter()):
+            raise WorldCompileError(
+                f"bank feed {path.name!r} does not match its compiled transactions"
+            )
+    if actual_keys != set(expected_by_fixture_key):
+        raise WorldCompileError(
+            "bank-feed source files and BankTransaction fixture groups differ"
+        )
+
+
+def _validate_opening_balances(root: Path, records: tuple[VersionedModel, ...]) -> None:
+    path = root / "opening-balances.csv"
+    if not path.exists():
+        return
+    accounts = [record for record in records if isinstance(record, Account)]
+    journals = [record for record in records if isinstance(record, Journal)]
+    account_by_key = {
+        (account.entity_id, account.code): account.id for account in accounts
+    }
+    balances: dict[str, int] = {}
+    for journal in journals:
+        if journal.source != "opening":
+            continue
+        for line in journal.lines:
+            signed = line.amount_minor if line.direction == "dr" else -line.amount_minor
+            balances[line.account_id] = balances.get(line.account_id, 0) + signed
+    try:
+        with path.open(newline="", encoding="utf-8") as source:
+            reader = csv.DictReader(source)
+            required = {"entity_id", "account_code", "amount_minor"}
+            if reader.fieldnames is None or set(reader.fieldnames) != required:
+                raise WorldCompileError(
+                    "opening-balances.csv must have exactly entity_id, account_code, amount_minor"
+                )
+            expected: dict[str, int] = {}
+            for row in reader:
+                account_id = account_by_key.get(
+                    (str(row["entity_id"]), str(row["account_code"]))
+                )
+                if account_id is None:
+                    raise WorldCompileError(
+                        "opening-balances.csv references an unknown entity/account code"
+                    )
+                if account_id in expected:
+                    raise WorldCompileError(
+                        "opening-balances.csv contains a duplicate account balance"
+                    )
+                expected[account_id] = int(str(row["amount_minor"]))
+    except (OSError, ValueError, csv.Error) as error:
+        raise WorldCompileError("opening-balances.csv is invalid") from error
+    if any(
+        balances.get(account_id) != amount for account_id, amount in expected.items()
+    ):
+        raise WorldCompileError(
+            "opening-balances.csv does not match posted opening journal balances"
+        )
