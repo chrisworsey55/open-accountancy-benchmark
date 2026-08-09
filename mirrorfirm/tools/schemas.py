@@ -190,6 +190,8 @@ class DraftReplyInput(ToolInput):
 
 
 class CreateWorkpaperInput(ToolInput):
+    """Explicit task selection and a typed §E.14 workpaper body."""
+
     task_id: str
     body: WorkpaperBody
 

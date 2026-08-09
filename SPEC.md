@@ -708,9 +708,12 @@ journal: Dr acc-7502 10000, Dr acc-2202 2000, Cr bank 12000.
   `request_approval(kind=send_external_message, draft_message_id=...)`.
 - `draft_reply(thread_id, body, attachments?)` / `send_reply(draft_message_id)` - same
   gating; durations 3/3.
-- `create_workpaper(body: typed §E.14)` - duration 10; `update_workpaper` - duration 5,
-  drafts only. Guards: bank_reconciliation must satisfy I-6 or list `unresolved[]`
-  (RECON_DOES_NOT_TIE returns the exact difference); PROVENANCE_REQUIRED on material rows.
+- `create_workpaper({task_id, body: typed §E.14})` - duration 10; `update_workpaper` -
+  duration 5, drafts only. `task_id` is required because §E.14 `Workpaper.task_id` is a
+  required relationship: explicit task selection prevents ambiguous or unsafe implicit
+  selection from an engagement, task status, or workpaper body. Guards:
+  bank_reconciliation must satisfy I-6 or list `unresolved[]` (RECON_DOES_NOT_TIE
+  returns the exact difference); PROVENANCE_REQUIRED on material rows.
 - `finalize_workpaper(workpaper_id)` - duration 2. draft → final; re-checks I-6 +
   provenance; final immutable (reviewer `reopen_workpaper` event → draft). Errors:
   ALREADY_FINAL, RECON_DOES_NOT_TIE, PROVENANCE_REQUIRED.

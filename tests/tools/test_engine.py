@@ -109,6 +109,11 @@ def test_registry_defines_every_specified_tool_and_mcp_schema(
         definition.name not in {"bash", "write_file", "delete_file"}
         for definition in definitions
     )
+    create_workpaper = DEFAULT_REGISTRY.get("create_workpaper")
+    assert create_workpaper is not None
+    create_schema = create_workpaper.input_model.model_json_schema()
+    assert create_schema["required"] == ["task_id", "body"]
+    assert "Explicit task selection" in create_schema["description"]
 
     server = MCPToolServer(engine)
     mcp_tools = server.list_tools()["tools"]
@@ -408,6 +413,23 @@ def test_reconciliation_workpaper_requires_a_tie_or_explicit_unresolved_item(
 
     assert result.ok is False
     assert result.error is not None and result.error.code == "RECON_DOES_NOT_TIE"
+
+
+def test_create_workpaper_requires_explicit_task_selection(
+    engine: WorldToolEngine,
+) -> None:
+    result = engine.call(
+        "create_workpaper",
+        {
+            "body": {
+                "kind": "query_log",
+                "items": [],
+            }
+        },
+    )
+
+    assert result.ok is False
+    assert result.error is not None and result.error.code == "VALIDATION_ERROR"
 
 
 @pytest.mark.parametrize(

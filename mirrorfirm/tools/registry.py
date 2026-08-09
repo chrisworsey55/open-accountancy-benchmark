@@ -264,7 +264,7 @@ _DEFINITIONS = (
     ),
     _definition(
         "create_workpaper",
-        "Create a typed draft workpaper for a scoped task.",
+        "Create a typed draft workpaper for an explicitly selected scoped task.",
         CreateWorkpaperInput,
         roles=BOOKKEEPING_ROLES,
         duration_minutes=10,
