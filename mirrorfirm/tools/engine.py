@@ -170,13 +170,20 @@ class WorldToolEngine:
                     mutations,
                     before=call_started,
                 )
+                if name == "finish_episode":
+                    try:
+                        snapshot = self.store.snapshot(
+                            self.snapshot_dir / f"{result['final_snapshot_id']}.db",
+                            snapshot_id=str(result["final_snapshot_id"]),
+                            episode_run_id=self.episode_run_id,
+                            phase="final",
+                            transactional=True,
+                        )
+                    except (OSError, RuntimeError, ValueError) as error:
+                        raise ToolExecutionError(
+                            "VALIDATION_ERROR", "final snapshot could not be created"
+                        ) from error
             if name == "finish_episode":
-                snapshot = self.store.snapshot(
-                    self.snapshot_dir / f"{result['final_snapshot_id']}.db",
-                    snapshot_id=str(result["final_snapshot_id"]),
-                    episode_run_id=self.episode_run_id,
-                    phase="final",
-                )
                 self._finished = True
                 result = {
                     **result,
@@ -189,7 +196,7 @@ class WorldToolEngine:
         except ToolExecutionError as error:
             self._pending_fired_event_ids.clear()
             self._action_sequence = len(self._list(Action))
-            return self._failure(name, raw_input, error)
+            return self._failure(name, raw_input, error, before=call_started)
         finally:
             self._time_override = None
 
@@ -252,7 +259,7 @@ class WorldToolEngine:
 
     def _tool_get_task(self, value: BaseModel) -> tuple[dict[str, Any], list[Mutation]]:
         task = self._must_load(Task, getattr(value, "task_id"))
-        self._require_scope(self._client_for_task(task))
+        self._require_task_scope(task)
         return {"task": self._dump(task)}, []
 
     def _tool_list_clients(self, _: BaseModel) -> tuple[dict[str, Any], list[Mutation]]:
@@ -667,7 +674,8 @@ class WorldToolEngine:
         entity_id = entity_ids.pop()
         self._require_scope(self._client_for_entity(entity_id))
         period = self._period_for_date(entity_id, getattr(value, "date"))
-        self._guard_period(period)
+        if period.status == "locked":
+            self._guard_period(period)
         self._require_provenance(getattr(value, "provenance_refs"))
         try:
             journal = Journal(
@@ -898,7 +906,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         task = self._must_load(Task, getattr(value, "task_id"))
-        self._require_scope(self._client_for_task(task))
+        self._require_task_scope(task)
         body = getattr(value, "body")
         self._validate_workpaper_body(body)
         workpaper = Workpaper(
@@ -929,7 +937,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         workpaper = self._must_load(Workpaper, getattr(value, "workpaper_id"))
-        self._require_scope(self._client_for_workpaper(workpaper))
+        self._require_workpaper_scope(workpaper)
         if workpaper.status != "draft":
             raise ToolExecutionError("ALREADY_FINAL", "final workpapers are immutable")
         body = getattr(value, "body")
@@ -956,7 +964,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         workpaper = self._must_load(Workpaper, getattr(value, "workpaper_id"))
-        self._require_scope(self._client_for_workpaper(workpaper))
+        self._require_workpaper_scope(workpaper)
         if workpaper.status == "final":
             raise ToolExecutionError("ALREADY_FINAL", "workpaper is already final")
         self._validate_workpaper_body(workpaper.body)
@@ -974,40 +982,12 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         task = self._must_load(Task, getattr(value, "task_id"))
-        self._require_scope(self._client_for_task(task))
+        self._require_task_scope(task)
         status = getattr(value, "status")
-        allowed = {
-            "open": {"in_progress"},
-            "in_progress": {"blocked"},
-            "blocked": {"in_progress"},
-            "ready_for_review": {"done"},
-            "done": set(),
-        }
-        if status not in allowed[task.status]:
-            if status == "done":
-                raise ToolExecutionError(
-                    "REVIEW_REQUIRED", "task must be submitted for review before done"
-                )
-            raise ToolExecutionError(
-                "VALIDATION_ERROR",
-                f"illegal task lifecycle transition {task.status} -> {status}",
-            )
-        if status == "done" and task.status != "ready_for_review":
-            raise ToolExecutionError(
-                "REVIEW_REQUIRED", "task must be submitted for review before done"
-            )
-        blocked_on = getattr(value, "blocked_on")
-        if status == "blocked" and not blocked_on:
-            raise ToolExecutionError(
-                "VALIDATION_ERROR", "blocked tasks require blocked_on"
-            )
-        if status == "blocked" and blocked_on is not None:
-            self._require_scoped_reference(blocked_on)
-        updated = task.model_copy(
-            update={
-                "status": status,
-                "blocked_on": blocked_on if status == "blocked" else None,
-            }
+        updated = self._transition_task(
+            task,
+            status,
+            blocked_on=getattr(value, "blocked_on"),
         )
         self.store.save(updated)
         return {"task": self._dump(updated)}, [
@@ -1018,7 +998,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         task = self._must_load(Task, getattr(value, "task_id"))
-        self._require_scope(self._client_for_task(task))
+        self._require_task_scope(task)
         if task.status != "in_progress":
             raise ToolExecutionError(
                 "VALIDATION_ERROR",
@@ -1031,15 +1011,13 @@ class WorldToolEngine:
             )
         for workpaper_id in workpaper_ids:
             workpaper = self._must_load(Workpaper, workpaper_id)
-            self._require_scope(self._client_for_workpaper(workpaper))
+            self._require_workpaper_scope(workpaper)
             if workpaper.task_id != task.id or workpaper.status != "final":
                 raise ToolExecutionError(
                     "DRAFT_WORKPAPER",
                     "submitted workpapers must be final and belong to the task",
                 )
-        updated = task.model_copy(
-            update={"status": "ready_for_review", "blocked_on": None}
-        )
+        updated = self._transition_task(task, "ready_for_review")
         self.store.save(updated)
         return {"task": self._dump(updated), "summary": getattr(value, "summary")}, [
             self._mutation("Task", task.id, "status_changed", "submitted for review")
@@ -1275,6 +1253,10 @@ class WorldToolEngine:
         return output
 
     def _execute_granted_approval(self, approval: Approval, at: datetime) -> None:
+        if approval.status != "granted":
+            raise ToolExecutionError(
+                "NOTHING_TO_APPROVE", "approval has not been granted"
+            )
         descriptor = approval.action_descriptor
         mutations: list[Mutation] = []
         output: dict[str, Any] = {
@@ -1285,6 +1267,23 @@ class WorldToolEngine:
             descriptor, (PostJournalDescriptor, PostToClosedPeriodDescriptor)
         ):
             journal = self._must_load(Journal, descriptor.journal_id)
+            period = self._period_for_date(journal.entity_id, journal.date)
+            if isinstance(descriptor, PostJournalDescriptor):
+                if period.status == "closed":
+                    raise ToolExecutionError(
+                        "DESCRIPTOR_MISMATCH",
+                        "closed-period journals require post_to_closed_period approval",
+                    )
+                self._guard_period(period)
+            elif (
+                period.status != "closed"
+                or descriptor.period_id != period.id
+                or descriptor.kind != "post_to_closed_period"
+            ):
+                raise ToolExecutionError(
+                    "DESCRIPTOR_MISMATCH",
+                    "closed-period approval does not match the proposed journal",
+                )
             posted = journal.model_copy(
                 update={"status": "posted", "approval_id": approval.id}
             )
@@ -1382,6 +1381,7 @@ class WorldToolEngine:
     ) -> list[Mutation]:
         if payload.effect == "reopen_workpaper":
             workpaper = self._must_load(Workpaper, target)
+            self._require_workpaper_scope(workpaper)
             self.store.save(
                 workpaper.model_copy(
                     update={"status": "draft", "finalized_world_time": None}
@@ -1394,7 +1394,8 @@ class WorldToolEngine:
             ]
         elif payload.effect == "set_task_status" and payload.effect_arg:
             task = self._must_load(Task, target)
-            self.store.save(task.model_copy(update={"status": payload.effect_arg}))
+            updated = self._transition_task(task, payload.effect_arg)
+            self.store.save(updated)
             return [
                 self._mutation(
                     "Task", task.id, "status_changed", "reviewer status change"
@@ -1554,7 +1555,15 @@ class WorldToolEngine:
                 raise ToolExecutionError(
                     "NOTHING_TO_APPROVE", "journal is not proposed"
                 )
-            if isinstance(descriptor, PostToClosedPeriodDescriptor):
+            period = self._period_for_date(journal.entity_id, journal.date)
+            if isinstance(descriptor, PostJournalDescriptor):
+                if period.status == "closed":
+                    raise ToolExecutionError(
+                        "DESCRIPTOR_MISMATCH",
+                        "closed-period journals require post_to_closed_period approval",
+                    )
+                self._guard_period(period)
+            else:
                 period = self._scoped_period(descriptor.period_id)
                 if period.status != "closed":
                     raise ToolExecutionError(
@@ -1622,13 +1631,19 @@ class WorldToolEngine:
         return sent, sent_irq, mutations
 
     def _failure(
-        self, name: str, input_payload: dict[str, object], error: ToolExecutionError
+        self,
+        name: str,
+        input_payload: dict[str, object],
+        error: ToolExecutionError,
+        *,
+        before: datetime | None = None,
     ) -> ToolCallResult:
         action = self._record(
             name,
             self._json_value(input_payload),
             {"error": self._dump(error.error)},
             [],
+            before=before,
         )
         return ToolCallResult(ok=False, error=error.error, action_id=action.id)
 
@@ -1735,6 +1750,75 @@ class WorldToolEngine:
             raise ToolExecutionError(
                 "SCOPE_VIOLATION", "reference is outside the current client scope"
             )
+
+    def _require_task_scope(self, task: Task) -> None:
+        self._require_scope(self._client_for_task(task))
+        if task.engagement_id != self.engagement.id:
+            raise ToolExecutionError(
+                "SCOPE_VIOLATION",
+                "task is outside the current engagement scope",
+            )
+
+    def _require_workpaper_scope(self, workpaper: Workpaper) -> None:
+        self._require_scope(self._client_for_workpaper(workpaper))
+        if workpaper.engagement_id != self.engagement.id:
+            raise ToolExecutionError(
+                "SCOPE_VIOLATION",
+                "workpaper is outside the current engagement scope",
+            )
+        self._require_task_scope(self._must_load(Task, workpaper.task_id))
+
+    def _task_is_scoped(self, task: Task) -> bool:
+        return (
+            task.engagement_id == self.engagement.id
+            and self._client_for_task(task) == self.client_id
+        )
+
+    def _workpaper_is_scoped(self, workpaper: Workpaper) -> bool:
+        return (
+            workpaper.engagement_id == self.engagement.id
+            and self._client_for_workpaper(workpaper) == self.client_id
+            and self._task_is_scoped(self._must_load(Task, workpaper.task_id))
+        )
+
+    def _transition_task(
+        self,
+        task: Task,
+        target_status: str,
+        *,
+        blocked_on: str | None = None,
+    ) -> Task:
+        """Apply the one shared §D.2 lifecycle transition policy."""
+
+        self._require_task_scope(task)
+        allowed = {
+            "open": {"in_progress"},
+            "in_progress": {"blocked", "ready_for_review"},
+            "blocked": {"in_progress"},
+            "ready_for_review": {"done"},
+            "done": set(),
+        }
+        if target_status not in allowed[task.status]:
+            if target_status == "done":
+                raise ToolExecutionError(
+                    "REVIEW_REQUIRED", "task must be submitted for review before done"
+                )
+            raise ToolExecutionError(
+                "VALIDATION_ERROR",
+                f"illegal task lifecycle transition {task.status} -> {target_status}",
+            )
+        if target_status == "blocked":
+            if not blocked_on:
+                raise ToolExecutionError(
+                    "VALIDATION_ERROR", "blocked tasks require blocked_on"
+                )
+            self._require_scoped_reference(blocked_on)
+        return task.model_copy(
+            update={
+                "status": target_status,
+                "blocked_on": blocked_on if target_status == "blocked" else None,
+            }
+        )
 
     def _client_for_entity(self, entity_id: str) -> str:
         for client in self._list(Client):
@@ -1843,10 +1927,7 @@ class WorldToolEngine:
             if payload.task_id is None:
                 return False
             try:
-                return (
-                    self._client_for_task(self._must_load(Task, payload.task_id))
-                    == self.client_id
-                )
+                return self._task_is_scoped(self._must_load(Task, payload.task_id))
             except ToolExecutionError:
                 return False
         if isinstance(payload, ApprovalDecisionPayload):
@@ -1854,7 +1935,8 @@ class WorldToolEngine:
         if isinstance(payload, ReviewerNotePayload):
             target = self._expand_template(payload.target_ref, bound)
             try:
-                return self._client_for_reference(target) == self.client_id
+                self._require_scoped_reference(target)
+                return True
             except ToolExecutionError:
                 return False
         return False
@@ -1867,9 +1949,9 @@ class WorldToolEngine:
         if isinstance(entity, Message):
             return self._client_for_message(entity) == self.client_id
         if isinstance(entity, Workpaper):
-            return self._client_for_workpaper(entity) == self.client_id
+            return self._workpaper_is_scoped(entity)
         if isinstance(entity, Task):
-            return self._client_for_task(entity) == self.client_id
+            return self._task_is_scoped(entity)
         return False
 
     def _require_attachments(self, references: Iterable[str]) -> None:
@@ -1978,6 +2060,16 @@ class WorldToolEngine:
                     "SCOPE_VIOLATION",
                     "calculation actions are visible only to the current engine session",
                 )
+            return
+        task = next((item for item in self._list(Task) if item.id == reference), None)
+        if task is not None:
+            self._require_task_scope(task)
+            return
+        workpaper = next(
+            (item for item in self._list(Workpaper) if item.id == reference), None
+        )
+        if workpaper is not None:
+            self._require_workpaper_scope(workpaper)
             return
         client_id = self._client_for_reference(reference)
         if client_id is None:
@@ -2100,6 +2192,8 @@ class WorldToolEngine:
         return None
 
     def _matches_entity(self, entity: BaseModel, trigger: AfterEntity) -> bool:
+        if not self._entity_is_scoped(entity):
+            return False
         match = trigger.match
         client_id: str | None = None
         if isinstance(entity, InformationRequest):

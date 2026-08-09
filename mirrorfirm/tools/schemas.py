@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from pydantic import (
     BaseModel,
@@ -15,12 +15,27 @@ from pydantic import (
 )
 
 from mirrorfirm.core.models import (
+    Approval,
     ApprovalActionDescriptor,
     ApprovalKind,
+    BankTransaction,
+    Client,
+    Document,
+    Engagement,
+    InformationRequest,
     IrqItem,
+    Journal,
     JournalLine,
+    Message,
+    Person,
+    Practice,
+    ReviewNote,
     Role,
+    StateSnapshot,
+    Task,
     TaxTag,
+    Thread,
+    Workpaper,
     WorkpaperBody,
 )
 
@@ -236,12 +251,292 @@ class FinishEpisodeInput(ToolInput):
     unresolved_items: list[str] = Field(default_factory=list)
 
 
+JsonObject: TypeAlias = dict[str, JsonValue]
+
+
+class EventFiredOutput(BaseModel):
+    """One scheduled event surfaced by a tool result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str
+    kind: str
+    surface_refs: list[str]
+
+
+class ToolOutput(BaseModel):
+    """Shared metadata that may accompany any concrete stable tool output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fired_events: list[EventFiredOutput] | None = None
+
+
+class GetContextOutput(ToolOutput):
+    practice: Practice
+    engagement: Engagement
+    client: Client
+    actor: Person
+
+
+class GetCurrentTimeOutput(ToolOutput):
+    world_time: str
+    local_time: str
+    next_event_exists: bool
+
+
+class ListTasksOutput(ToolOutput):
+    tasks: list[Task]
+
+
+class GetTaskOutput(ToolOutput):
+    task: Task
+
+
+class ListClientsOutput(ToolOutput):
+    clients: list[Client]
+
+
+class GetClientOutput(ToolOutput):
+    client: Client
+
+
+class ListDocumentsOutput(ToolOutput):
+    documents: list[Document]
+
+
+class ReadDocumentOutput(ToolOutput):
+    document: Document
+    content: str
+
+
+class ReadTableOutput(ToolOutput):
+    table_ref: str
+    rows: list[dict[str, str]]
+
+
+class DocumentSearchMatch(BaseModel):
+    """A document hit with the bounded source excerpt returned by search."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document: Document
+    snippet: str
+
+
+class SearchDocumentsOutput(ToolOutput):
+    matches: list[DocumentSearchMatch]
+
+
+class ListBankTransactionsOutput(ToolOutput):
+    transactions: list[BankTransaction]
+
+
+class LedgerLineOutput(BaseModel):
+    """One flat, provenance-bearing ledger line exposed by ``query_ledger``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["0.1"] = "0.1"
+    journal_id: str
+    line_index: int
+    date: str
+    status: Literal["proposed", "approved", "posted", "rejected"]
+    source: Literal["opening", "feed_classification", "proposal", "adjustment"]
+    account_id: str
+    direction: Literal["dr", "cr"]
+    amount_minor: int
+    currency: str
+    bank_transaction_id: str | None = None
+    tax: TaxTag | None = None
+    source_ref: str
+
+
+class QueryLedgerOutput(ToolOutput):
+    lines: list[LedgerLineOutput]
+
+
+class TrialBalanceOutput(ToolOutput):
+    period_id: str
+    balances: dict[str, int]
+
+
+class ListThreadsOutput(ToolOutput):
+    threads: list[Thread]
+
+
+class ReadThreadOutput(ToolOutput):
+    thread: Thread
+    messages: list[Message]
+
+
+class GetReconciliationStatusOutput(ToolOutput):
+    workpapers: list[Workpaper]
+
+
+class ListApprovalsOutput(ToolOutput):
+    approvals: list[Approval]
+
+
+class ListReviewNotesOutput(ToolOutput):
+    review_notes: list[ReviewNote]
+
+
+class AggregateTableOutput(ToolOutput):
+    rows: list[JsonObject]
+
+
+class CalculateOutput(ToolOutput):
+    value: int | float | str
+    calculation_action_id: str
+
+
+class DatasetComparison(BaseModel):
+    """One keyed comparison with explicitly named source rows and differences."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: list[JsonValue]
+    left: JsonObject
+    right: JsonObject
+    left_ref: str
+    right_ref: str
+    different_fields: list[str]
+
+
+class CompareDatasetsOutput(ToolOutput):
+    matched: list[DatasetComparison]
+    left_only: list[JsonObject]
+    right_only: list[JsonObject]
+    mismatched: list[DatasetComparison]
+
+
+class ProposeClassificationOutput(ToolOutput):
+    journal_ids: list[str]
+    transaction_ids: list[str]
+
+
+class ProposeJournalOutput(ToolOutput):
+    journal: Journal
+
+
+class RequestApprovalOutput(ToolOutput):
+    approval: Approval
+
+
+class DraftInformationRequestOutput(ToolOutput):
+    thread: Thread
+    message: Message
+    information_request: InformationRequest
+
+
+class UpdateDraftOutput(ToolOutput):
+    message: Message
+    information_request: InformationRequest | None
+
+
+class SendInformationRequestOutput(ToolOutput):
+    message: Message
+    information_request: InformationRequest
+
+
+class DraftReplyOutput(ToolOutput):
+    message: Message
+
+
+class SendReplyOutput(ToolOutput):
+    message: Message
+
+
+class CreateWorkpaperOutput(ToolOutput):
+    workpaper: Workpaper
+
+
+class UpdateWorkpaperOutput(ToolOutput):
+    workpaper: Workpaper
+
+
+class FinalizeWorkpaperOutput(ToolOutput):
+    workpaper: Workpaper
+
+
+class UpdateTaskStatusOutput(ToolOutput):
+    task: Task
+
+
+class SubmitForReviewOutput(ToolOutput):
+    task: Task
+    summary: str
+
+
+class EscalateOutput(ToolOutput):
+    review_note: ReviewNote
+    subject_refs: list[str]
+
+
+class AdvanceTimeOutput(ToolOutput):
+    world_time: str
+    local_time: str
+    fired_events: list[EventFiredOutput]
+    stopped_early: bool
+
+
+class FinishEpisodeOutput(ToolOutput):
+    summary: str
+    deliverable_refs: list[str]
+    unresolved_items: list[str]
+    final_snapshot_id: str
+    final_snapshot: StateSnapshot
+    state_digest: str
+
+
+TOOL_OUTPUT_MODELS: dict[str, type[ToolOutput]] = {
+    "get_context": GetContextOutput,
+    "get_current_time": GetCurrentTimeOutput,
+    "list_tasks": ListTasksOutput,
+    "get_task": GetTaskOutput,
+    "list_clients": ListClientsOutput,
+    "get_client": GetClientOutput,
+    "list_documents": ListDocumentsOutput,
+    "read_document": ReadDocumentOutput,
+    "read_table": ReadTableOutput,
+    "search_documents": SearchDocumentsOutput,
+    "list_bank_transactions": ListBankTransactionsOutput,
+    "query_ledger": QueryLedgerOutput,
+    "trial_balance": TrialBalanceOutput,
+    "list_threads": ListThreadsOutput,
+    "read_thread": ReadThreadOutput,
+    "get_reconciliation_status": GetReconciliationStatusOutput,
+    "list_approvals": ListApprovalsOutput,
+    "list_review_notes": ListReviewNotesOutput,
+    "aggregate_table": AggregateTableOutput,
+    "calculate": CalculateOutput,
+    "compare_datasets": CompareDatasetsOutput,
+    "propose_classification": ProposeClassificationOutput,
+    "propose_journal": ProposeJournalOutput,
+    "request_approval": RequestApprovalOutput,
+    "draft_information_request": DraftInformationRequestOutput,
+    "update_draft": UpdateDraftOutput,
+    "send_information_request": SendInformationRequestOutput,
+    "draft_reply": DraftReplyOutput,
+    "send_reply": SendReplyOutput,
+    "create_workpaper": CreateWorkpaperOutput,
+    "update_workpaper": UpdateWorkpaperOutput,
+    "finalize_workpaper": FinalizeWorkpaperOutput,
+    "update_task_status": UpdateTaskStatusOutput,
+    "submit_for_review": SubmitForReviewOutput,
+    "escalate": EscalateOutput,
+    "advance_time": AdvanceTimeOutput,
+    "finish_episode": FinishEpisodeOutput,
+}
+
+
 class ToolCallResult(BaseModel):
-    """Uniform result wrapper exposed through Python and MCP transports."""
+    """Engine execution envelope; registry models define public tool outputs."""
 
     model_config = ConfigDict(extra="forbid")
 
     ok: bool
-    result: JsonValue | None = None
+    result: dict[str, object] | None = None
     error: ToolError | None = None
     action_id: str | None = None

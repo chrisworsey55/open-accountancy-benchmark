@@ -100,10 +100,7 @@ def test_registry_defines_every_specified_tool_and_mcp_schema(
     definitions = DEFAULT_REGISTRY.definitions()
 
     assert {definition.name for definition in definitions} == EXPECTED_TOOL_NAMES
-    assert all(
-        definition.output_model.__name__ == "ToolCallResult"
-        for definition in definitions
-    )
+    assert len({definition.output_model for definition in definitions}) == 37
     assert all("SCOPE_VIOLATION" in definition.errors for definition in definitions)
     assert all(
         definition.name not in {"bash", "write_file", "delete_file"}

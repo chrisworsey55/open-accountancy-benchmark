@@ -25,16 +25,20 @@ class MCPToolServer:
 
         result = self.engine.call(name, arguments)
         if result.ok:
+            definition = self.engine.registry.get(name)
+            if definition is None or result.result is None:
+                raise ValueError("successful tool call has no registered typed output")
+            output = definition.output_model.model_validate(result.result).model_dump(
+                mode="json", exclude_none=True
+            )
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": json.dumps(
-                            result.result, ensure_ascii=False, sort_keys=True
-                        ),
+                        "text": json.dumps(output, ensure_ascii=False, sort_keys=True),
                     }
                 ],
-                "structuredContent": result.model_dump(mode="json"),
+                "structuredContent": output,
                 "isError": False,
             }
         return {

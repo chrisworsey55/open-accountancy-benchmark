@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from mirrorfirm.core.models import Role
 
 from .schemas import (
+    TOOL_OUTPUT_MODELS,
     AdvanceTimeInput,
     AggregateInput,
     BankTransactionsInput,
@@ -38,7 +39,6 @@ from .schemas import (
     SearchDocumentsInput,
     SubmitForReviewInput,
     TaskListInput,
-    ToolCallResult,
     UpdateDraftInput,
     UpdateTaskStatusInput,
     UpdateWorkpaperInput,
@@ -80,6 +80,7 @@ class ToolDefinition:
             "name": self.name,
             "description": self.description,
             "inputSchema": self.input_model.model_json_schema(),
+            "outputSchema": self.output_model.model_json_schema(),
         }
 
 
@@ -98,7 +99,7 @@ def _definition(
         name=name,
         description=description,
         input_model=input_model,
-        output_model=ToolCallResult,
+        output_model=TOOL_OUTPUT_MODELS[name],
         roles=roles,
         duration_minutes=duration_minutes,
         mutations=mutations,

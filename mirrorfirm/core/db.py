@@ -319,6 +319,7 @@ class WorldStore:
         snapshot_id: str,
         episode_run_id: str,
         phase: Literal["initial", "final"],
+        transactional: bool = False,
     ) -> StateSnapshot:
         """Copy the database and return its digest-bearing snapshot metadata.
 
@@ -335,14 +336,25 @@ class WorldStore:
             raise FileExistsError(destination_path)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-        source_digest = self.state_digest()
-        self._connection.commit()
-        shutil.copy2(self._path, destination_path)
+        if transactional and self._transaction_depth == 0:
+            raise ValueError("transactional snapshots require an active transaction")
 
-        with SQLiteWorldView.open(destination_path) as snapshot_view:
-            snapshot_digest = snapshot_view.state_digest()
-        if snapshot_digest != source_digest:
-            raise RuntimeError("snapshot digest differs from its source database")
+        source_digest = self.state_digest()
+        try:
+            if transactional:
+                destination_path.write_bytes(self._connection.serialize())
+            else:
+                self._connection.commit()
+                shutil.copy2(self._path, destination_path)
+
+            with SQLiteWorldView.open(destination_path) as snapshot_view:
+                snapshot_digest = snapshot_view.state_digest()
+            if snapshot_digest != source_digest:
+                raise RuntimeError("snapshot digest differs from its source database")
+        except BaseException:
+            if destination_path.exists():
+                destination_path.unlink()
+            raise
 
         return StateSnapshot(
             id=snapshot_id,
