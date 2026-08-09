@@ -8,7 +8,7 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Literal, TypeVar, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -47,6 +47,7 @@ from mirrorfirm.core.models import (
     SendMessageDescriptor,
     Task,
     Thread,
+    VersionedModel,
     Workpaper,
     WorldManifest,
 )
@@ -57,6 +58,12 @@ from .documents import parse_document_text
 from .errors import ToolExecutionError
 from .registry import DEFAULT_REGISTRY, ToolRegistry
 from .schemas import ToolCallResult
+
+ModelT = TypeVar("ModelT", bound=VersionedModel)
+MutationChange = Literal["created", "updated", "status_changed"]
+ProvenanceRelation = Literal[
+    "supported_by", "derived_from", "authorized_by", "contradicted_by"
+]
 
 
 class WorldToolEngine:
@@ -89,9 +96,13 @@ class WorldToolEngine:
         self.practice = self._find_practice()
         self.pack: JurisdictionPack = get_pack(self.manifest.jurisdiction)
         self._tables: dict[str, list[dict[str, Any]]] = {}
-        self._finished = False
+        actions = self._list(Action)
+        self._finished = any(action.tool == "finish_episode" for action in actions)
         self._time_override: datetime | None = None
         self._runtime_sequence = self._initial_runtime_sequence()
+        self._action_sequence = len(actions)
+        self._pending_fired_event_ids: set[str] = set()
+        self._visible_action_ids: set[str] = set()
 
     def call(
         self, name: str, payload: dict[str, object] | None = None
@@ -99,6 +110,13 @@ class WorldToolEngine:
         """Validate, permission-check, execute, and audit one public tool call."""
 
         raw_input = payload or {}
+        if self._finished:
+            return ToolCallResult(
+                ok=False,
+                error=ToolExecutionError(
+                    "VALIDATION_ERROR", "episode has already finished"
+                ).error,
+            )
         definition = self.registry.get(name)
         if definition is None:
             return self._failure(
@@ -122,12 +140,6 @@ class WorldToolEngine:
                 ),
             )
 
-        if self._finished and name != "get_current_time":
-            return self._failure(
-                name,
-                raw_input,
-                ToolExecutionError("VALIDATION_ERROR", "episode has already finished"),
-            )
         if self.actor.role not in definition.roles:
             return self._failure(
                 name,
@@ -140,33 +152,43 @@ class WorldToolEngine:
 
         call_started = self.now
         try:
-            if name == "advance_time":
-                result, mutations = self._advance_time(input_value)
-                fired = bool(result["fired_events"])
-            else:
-                target = self.now + timedelta(minutes=definition.duration_minutes)
-                fired_events = self._advance_to(target)
-                self._time_override = target
-                result, mutations = self._dispatch(name, input_value)
-                fired_events.extend(self._advance_to(target))
-                fired = bool(fired_events)
-                if fired_events:
-                    result = {**result, "fired_events": fired_events}
-            action = self._record(
-                name,
-                self._json_value(input_value),
-                self._json_value(result),
-                mutations,
-                before=self.now if fired else call_started,
-            )
-            if name == "calculate":
-                result = {**result, "calculation_action_id": action.id}
-                # Preserve the action's output digest by recording the id before audit.
-                # The branch is unreachable because calculate includes its id in dispatch.
+            with self.store.transaction():
+                if name == "advance_time":
+                    result, mutations = self._advance_time(input_value)
+                else:
+                    target = self.now + timedelta(minutes=definition.duration_minutes)
+                    fired_events = self._advance_to(target)
+                    self._time_override = target
+                    result, mutations = self._dispatch(name, input_value)
+                    fired_events.extend(self._advance_to(target))
+                    if fired_events:
+                        result = {**result, "fired_events": fired_events}
+                action = self._record(
+                    name,
+                    self._json_value(input_value),
+                    self._json_value(result),
+                    mutations,
+                    before=call_started,
+                )
             if name == "finish_episode":
+                snapshot = self.store.snapshot(
+                    self.snapshot_dir / f"{result['final_snapshot_id']}.db",
+                    snapshot_id=str(result["final_snapshot_id"]),
+                    episode_run_id=self.episode_run_id,
+                    phase="final",
+                )
                 self._finished = True
+                result = {
+                    **result,
+                    "final_snapshot": self._dump(snapshot),
+                    "state_digest": snapshot.state_digest,
+                }
+            self._visible_action_ids.add(action.id)
+            self._pending_fired_event_ids.clear()
             return ToolCallResult(ok=True, result=result, action_id=action.id)
         except ToolExecutionError as error:
+            self._pending_fired_event_ids.clear()
+            self._action_sequence = len(self._list(Action))
             return self._failure(name, raw_input, error)
         finally:
             self._time_override = None
@@ -185,7 +207,10 @@ class WorldToolEngine:
     def _dispatch(
         self, name: str, input_value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
-        handler = getattr(self, f"_tool_{name}")
+        handler = cast(
+            Callable[[BaseModel], tuple[dict[str, Any], list[Mutation]]],
+            getattr(self, f"_tool_{name}"),
+        )
         return handler(input_value)
 
     def _tool_get_context(self, _: BaseModel) -> tuple[dict[str, Any], list[Mutation]]:
@@ -597,7 +622,15 @@ class WorldToolEngine:
                 transaction.model_copy(update={"classification_status": "proposed"})
             )
             for basis_ref in provenance_refs:
-                self._save_provenance(journal.id, basis_ref)
+                provenance = self._save_provenance(journal.id, basis_ref)
+                mutations.append(
+                    self._mutation(
+                        "ProvenanceRecord",
+                        provenance.id,
+                        "created",
+                        "classification provenance recorded",
+                    )
+                )
             journal_ids.append(journal.id)
             mutations.extend(
                 (
@@ -653,11 +686,20 @@ class WorldToolEngine:
                 "UNBALANCED", "journal does not balance", {"errors": error.errors()}
             ) from error
         self.store.save(journal)
-        for basis_ref in getattr(value, "provenance_refs"):
-            self._save_provenance(journal.id, basis_ref)
-        return {"journal": self._dump(journal)}, [
+        mutations = [
             self._mutation("Journal", journal.id, "created", "proposed journal")
         ]
+        for basis_ref in getattr(value, "provenance_refs"):
+            provenance = self._save_provenance(journal.id, basis_ref)
+            mutations.append(
+                self._mutation(
+                    "ProvenanceRecord",
+                    provenance.id,
+                    "created",
+                    "journal provenance recorded",
+                )
+            )
+        return {"journal": self._dump(journal)}, mutations
 
     def _tool_request_approval(
         self, value: BaseModel
@@ -830,11 +872,13 @@ class WorldToolEngine:
             direction="outbound",
         )
         self.store.save(message)
-        self.store.save(
-            thread.model_copy(update={"message_ids": [*thread.message_ids, message.id]})
+        updated_thread = thread.model_copy(
+            update={"message_ids": [*thread.message_ids, message.id]}
         )
+        self.store.save(updated_thread)
         return {"message": self._dump(message)}, [
-            self._mutation("Message", message.id, "created", "reply draft")
+            self._mutation("Message", message.id, "created", "reply draft"),
+            self._mutation("Thread", thread.id, "updated", "reply draft linked"),
         ]
 
     def _tool_send_reply(
@@ -867,9 +911,18 @@ class WorldToolEngine:
             created_world_time=self.now,
         )
         self.store.save(workpaper)
-        self._save_workpaper_provenance(workpaper)
+        provenance = self._save_workpaper_provenance(workpaper)
         return {"workpaper": self._dump(workpaper)}, [
-            self._mutation("Workpaper", workpaper.id, "created", "draft workpaper")
+            self._mutation("Workpaper", workpaper.id, "created", "draft workpaper"),
+            *[
+                self._mutation(
+                    "ProvenanceRecord",
+                    record.id,
+                    "created",
+                    "workpaper provenance recorded",
+                )
+                for record in provenance
+            ],
         ]
 
     def _tool_update_workpaper(
@@ -883,11 +936,20 @@ class WorldToolEngine:
         self._validate_workpaper_body(body)
         updated = workpaper.model_copy(update={"body": body})
         self.store.save(updated)
-        self._save_workpaper_provenance(updated)
+        provenance = self._save_workpaper_provenance(updated)
         return {"workpaper": self._dump(updated)}, [
             self._mutation(
                 "Workpaper", updated.id, "updated", "draft workpaper updated"
-            )
+            ),
+            *[
+                self._mutation(
+                    "ProvenanceRecord",
+                    record.id,
+                    "created",
+                    "workpaper provenance recorded",
+                )
+                for record in provenance
+            ],
         ]
 
     def _tool_finalize_workpaper(
@@ -914,6 +976,22 @@ class WorldToolEngine:
         task = self._must_load(Task, getattr(value, "task_id"))
         self._require_scope(self._client_for_task(task))
         status = getattr(value, "status")
+        allowed = {
+            "open": {"in_progress"},
+            "in_progress": {"blocked"},
+            "blocked": {"in_progress"},
+            "ready_for_review": {"done"},
+            "done": set(),
+        }
+        if status not in allowed[task.status]:
+            if status == "done":
+                raise ToolExecutionError(
+                    "REVIEW_REQUIRED", "task must be submitted for review before done"
+                )
+            raise ToolExecutionError(
+                "VALIDATION_ERROR",
+                f"illegal task lifecycle transition {task.status} -> {status}",
+            )
         if status == "done" and task.status != "ready_for_review":
             raise ToolExecutionError(
                 "REVIEW_REQUIRED", "task must be submitted for review before done"
@@ -923,6 +1001,8 @@ class WorldToolEngine:
             raise ToolExecutionError(
                 "VALIDATION_ERROR", "blocked tasks require blocked_on"
             )
+        if status == "blocked" and blocked_on is not None:
+            self._require_scoped_reference(blocked_on)
         updated = task.model_copy(
             update={
                 "status": status,
@@ -939,6 +1019,11 @@ class WorldToolEngine:
     ) -> tuple[dict[str, Any], list[Mutation]]:
         task = self._must_load(Task, getattr(value, "task_id"))
         self._require_scope(self._client_for_task(task))
+        if task.status != "in_progress":
+            raise ToolExecutionError(
+                "VALIDATION_ERROR",
+                "only an in-progress task may be submitted for review",
+            )
         workpaper_ids = getattr(value, "workpaper_ids")
         if not workpaper_ids:
             raise ToolExecutionError(
@@ -984,19 +1069,12 @@ class WorldToolEngine:
         for reference in getattr(value, "deliverable_refs"):
             self._require_scoped_reference(reference)
         snapshot_id = self._new_id("snp")
-        snapshot = self.store.snapshot(
-            self.snapshot_dir / f"{snapshot_id}.db",
-            snapshot_id=snapshot_id,
-            episode_run_id=self.episode_run_id,
-            phase="final",
-        )
         return (
             {
                 "summary": getattr(value, "summary"),
                 "deliverable_refs": getattr(value, "deliverable_refs"),
                 "unresolved_items": getattr(value, "unresolved_items"),
-                "final_snapshot": self._dump(snapshot),
-                "state_digest": snapshot.state_digest,
+                "final_snapshot_id": snapshot_id,
             },
             [],
         )
@@ -1052,12 +1130,14 @@ class WorldToolEngine:
     ) -> tuple[Event, datetime, BaseModel | None] | None:
         candidates: list[tuple[datetime, Event, BaseModel | None]] = []
         for event in self._list(Event):
-            if event.fired:
+            if event.fired or event.id in self._pending_fired_event_ids:
                 continue
             scheduled = self._event_due_time(event)
             if scheduled is None:
                 continue
             due_time, bound = scheduled
+            if not self._event_is_eligible(event, bound):
+                continue
             if due_time < current or (ceiling is not None and due_time > ceiling):
                 continue
             candidates.append((due_time, event, bound))
@@ -1088,6 +1168,11 @@ class WorldToolEngine:
         self, event: Event, due_time: datetime, bound: BaseModel | None
     ) -> dict[str, Any]:
         payload = event.payload
+        if not self._event_is_eligible(event, bound):
+            raise ToolExecutionError(
+                "SCOPE_VIOLATION",
+                "event is outside the current engagement/client scope",
+            )
         mutations = [self._mutation("Event", event.id, "status_changed", "event fired")]
         surface_refs: list[str] = []
         if isinstance(payload, ClientReplyPayload):
@@ -1107,15 +1192,17 @@ class WorldToolEngine:
                 direction="inbound",
             )
             self.store.save(message)
-            self.store.save(
-                thread.model_copy(
-                    update={"message_ids": [*thread.message_ids, message.id]}
-                )
+            updated_thread = thread.model_copy(
+                update={"message_ids": [*thread.message_ids, message.id]}
             )
+            self.store.save(updated_thread)
             mutations.append(
                 self._mutation(
                     "Message", message.id, "created", "client reply delivered"
                 )
+            )
+            mutations.append(
+                self._mutation("Thread", thread.id, "updated", "client reply linked")
             )
             if payload.marks_irq:
                 irq = self._irq_for_thread(thread.id, status="sent")
@@ -1133,22 +1220,21 @@ class WorldToolEngine:
                     )
             surface_refs.append(thread.id)
         elif isinstance(payload, ApprovalDecisionPayload):
-            approval = (
-                bound
-                if isinstance(bound, Approval)
-                else self._first_requested_approval()
-            )
-            if approval is not None:
-                updated = approval.model_copy(update={"status": payload.decision})
-                self.store.save(updated)
-                mutations.append(
-                    self._mutation(
-                        "Approval", updated.id, "status_changed", payload.decision
-                    )
+            if not isinstance(bound, Approval):
+                raise ToolExecutionError(
+                    "VALIDATION_ERROR",
+                    "approval decisions must be bound to a scoped approval event",
                 )
-                surface_refs.append(updated.id)
-                if payload.decision == "granted":
-                    self._execute_granted_approval(updated, due_time)
+            updated = bound.model_copy(update={"status": payload.decision})
+            self.store.save(updated)
+            mutations.append(
+                self._mutation(
+                    "Approval", updated.id, "status_changed", payload.decision
+                )
+            )
+            surface_refs.append(updated.id)
+            if payload.decision == "granted":
+                self._execute_granted_approval(updated, due_time)
         elif isinstance(payload, ReviewerNotePayload):
             target = self._expand_template(payload.target_ref, bound)
             note = ReviewNote(
@@ -1164,7 +1250,7 @@ class WorldToolEngine:
             mutations.append(
                 self._mutation("ReviewNote", note.id, "created", "reviewer event")
             )
-            self._apply_reviewer_effect(payload, target)
+            mutations.extend(self._apply_reviewer_effect(payload, target))
             surface_refs.append(target)
         elif isinstance(payload, NewBankFeedPayload):
             surface_refs.extend(payload.txn_fixture_refs)
@@ -1172,6 +1258,7 @@ class WorldToolEngine:
             if payload.task_id:
                 surface_refs.append(payload.task_id)
         self.store.mark_event_fired(event.id)
+        self._pending_fired_event_ids.add(event.id)
         output = {
             "event_id": event.id,
             "kind": payload.kind,
@@ -1228,7 +1315,17 @@ class WorldToolEngine:
                             "classified after posting",
                         )
                     )
-            self._save_provenance(posted.id, approval.id, relation="authorized_by")
+            provenance = self._save_provenance(
+                posted.id, approval.id, relation="authorized_by"
+            )
+            mutations.append(
+                self._mutation(
+                    "ProvenanceRecord",
+                    provenance.id,
+                    "created",
+                    "approval authorization recorded",
+                )
+            )
             output["journal_id"] = posted.id
         elif isinstance(descriptor, SendMessageDescriptor):
             message = self._must_load(Message, descriptor.draft_message_id)
@@ -1236,7 +1333,17 @@ class WorldToolEngine:
                 message, self._irq_for_thread(message.thread_id), at=at
             )
             mutations.extend(sent_mutations)
-            self._save_provenance(sent.id, approval.id, relation="authorized_by")
+            provenance = self._save_provenance(
+                sent.id, approval.id, relation="authorized_by"
+            )
+            mutations.append(
+                self._mutation(
+                    "ProvenanceRecord",
+                    provenance.id,
+                    "created",
+                    "approval authorization recorded",
+                )
+            )
             output["message_id"] = sent.id
         elif isinstance(descriptor, ClosePeriodDescriptor):
             period = self._must_load(AccountingPeriod, descriptor.period_id)
@@ -1249,7 +1356,17 @@ class WorldToolEngine:
                     "closed after granted approval",
                 )
             )
-            self._save_provenance(period.id, approval.id, relation="authorized_by")
+            provenance = self._save_provenance(
+                period.id, approval.id, relation="authorized_by"
+            )
+            mutations.append(
+                self._mutation(
+                    "ProvenanceRecord",
+                    provenance.id,
+                    "created",
+                    "approval authorization recorded",
+                )
+            )
             output["period_id"] = period.id
         self._record(
             "system.execute_approval",
@@ -1260,7 +1377,9 @@ class WorldToolEngine:
             at=at,
         )
 
-    def _apply_reviewer_effect(self, payload: ReviewerNotePayload, target: str) -> None:
+    def _apply_reviewer_effect(
+        self, payload: ReviewerNotePayload, target: str
+    ) -> list[Mutation]:
         if payload.effect == "reopen_workpaper":
             workpaper = self._must_load(Workpaper, target)
             self.store.save(
@@ -1268,9 +1387,20 @@ class WorldToolEngine:
                     update={"status": "draft", "finalized_world_time": None}
                 )
             )
+            return [
+                self._mutation(
+                    "Workpaper", workpaper.id, "status_changed", "reopened by reviewer"
+                )
+            ]
         elif payload.effect == "set_task_status" and payload.effect_arg:
             task = self._must_load(Task, target)
             self.store.save(task.model_copy(update={"status": payload.effect_arg}))
+            return [
+                self._mutation(
+                    "Task", task.id, "status_changed", "reviewer status change"
+                )
+            ]
+        return []
 
     def _classification_lines(
         self,
@@ -1279,8 +1409,8 @@ class WorldToolEngine:
         splits: Iterable[Any],
     ) -> list[JournalLine]:
         is_money_in = transaction.amount_minor > 0
-        bank_direction = "dr" if is_money_in else "cr"
-        counter_direction = "cr" if is_money_in else "dr"
+        bank_direction: Literal["dr", "cr"] = "dr" if is_money_in else "cr"
+        counter_direction: Literal["dr", "cr"] = "cr" if is_money_in else "dr"
         lines = [
             JournalLine(
                 account_id=bank_account.ledger_account_id,
@@ -1378,13 +1508,20 @@ class WorldToolEngine:
                 )
             self._require_provenance(references)
 
-    def _save_workpaper_provenance(self, workpaper: Workpaper) -> None:
+    def _save_workpaper_provenance(
+        self, workpaper: Workpaper
+    ) -> list[ProvenanceRecord]:
         body = workpaper.body
         references: list[str] = []
         if isinstance(body, BankReconWorkpaper):
             references.extend(
                 reference
-                for item in [*body.outstanding, *body.unresolved]
+                for item in body.outstanding
+                for reference in item.provenance_refs
+            )
+            references.extend(
+                reference
+                for item in body.unresolved
                 for reference in item.provenance_refs
             )
         elif isinstance(body, ClassificationSummaryWorkpaper):
@@ -1395,8 +1532,9 @@ class WorldToolEngine:
             references.extend(
                 reference for item in body.items for reference in item.provenance_refs
             )
-        for reference in references:
-            self._save_provenance(workpaper.id, reference)
+        return [
+            self._save_provenance(workpaper.id, reference) for reference in references
+        ]
 
     def _guard_period(self, period: AccountingPeriod) -> None:
         if period.status == "locked":
@@ -1421,6 +1559,14 @@ class WorldToolEngine:
                 if period.status != "closed":
                     raise ToolExecutionError(
                         "DESCRIPTOR_MISMATCH", "period is not closed"
+                    )
+                if (
+                    period.entity_id != journal.entity_id
+                    or not period.start <= journal.date <= period.end
+                ):
+                    raise ToolExecutionError(
+                        "DESCRIPTOR_MISMATCH",
+                        "closed-period descriptor does not match journal date/entity",
                     )
         elif isinstance(descriptor, SendMessageDescriptor):
             message = self._must_load(Message, descriptor.draft_message_id)
@@ -1500,7 +1646,7 @@ class WorldToolEngine:
         world_time = at or self.now
         action = Action(
             id=self._next_action_id(),
-            step=len(self._list(Action)) + 1,
+            step=self._action_sequence + 1,
             actor=actor or self.actor.id,
             tool=tool,
             input_digest=logical_state_digest(input_payload),
@@ -1512,9 +1658,10 @@ class WorldToolEngine:
             mutations=mutations,
         )
         self.store.append_action(action)
+        self._action_sequence += 1
         return action
 
-    def _must_load(self, model_type: type[Any], identifier: str) -> Any:
+    def _must_load(self, model_type: type[ModelT], identifier: str) -> ModelT:
         try:
             return self.store.load(model_type, identifier)
         except KeyError as error:
@@ -1522,13 +1669,13 @@ class WorldToolEngine:
                 "NOT_FOUND", f"{model_type.__name__} {identifier!r} was not found"
             ) from error
 
-    def _list(self, model_type: type[Any]) -> tuple[Any, ...]:
+    def _list(self, model_type: type[ModelT]) -> tuple[ModelT, ...]:
         with self.store.view() as view:
             if model_type is Action:
-                return view.actions()
+                return cast(tuple[ModelT, ...], view.actions())
             if model_type is Event:
-                return view.events()
-            return view.list(model_type)
+                return cast(tuple[ModelT, ...], view.events())
+            return cast(tuple[ModelT, ...], view.list(model_type))
 
     def _find_manifest(self) -> WorldManifest:
         manifests = self._list(WorldManifest)
@@ -1558,10 +1705,10 @@ class WorldToolEngine:
         return f"{prefix}-r{self._runtime_sequence:06d}"
 
     def _next_action_id(self) -> str:
-        return f"act-r{len(self._list(Action)) + 1:06d}"
+        return f"act-r{self._action_sequence + 1:06d}"
 
     def _mutation(
-        self, kind: str, identifier: str, change: str, summary: str
+        self, kind: str, identifier: str, change: MutationChange, summary: str
     ) -> Mutation:
         return Mutation(
             entity_kind=kind, entity_id=identifier, change=change, summary=summary
@@ -1614,6 +1761,7 @@ class WorldToolEngine:
                 not event.fired
                 and isinstance(event.payload, NewBankFeedPayload)
                 and transaction_id in event.payload.txn_fixture_refs
+                and self._event_is_eligible(event, None)
             ):
                 return False
         return True
@@ -1657,14 +1805,72 @@ class WorldToolEngine:
         return document
 
     def _document_is_available(self, document: Document) -> bool:
-        if document.received_world_time <= self.now:
-            return True
-        return any(
-            event.fired
-            and isinstance(event.payload, ClientReplyPayload)
-            and document.id in event.payload.attachment_fixture_refs
+        delayed_by_reply = [
+            event
             for event in self._list(Event)
-        )
+            if isinstance(event.payload, ClientReplyPayload)
+            and document.id in event.payload.attachment_fixture_refs
+        ]
+        if delayed_by_reply:
+            return any(event.fired for event in delayed_by_reply)
+        return document.received_world_time <= self.now
+
+    def _event_is_eligible(self, event: Event, bound: BaseModel | None) -> bool:
+        """Whether an event may affect this engine's one engagement/client scope."""
+
+        if isinstance(event.trigger, AfterEntity):
+            if bound is None or not self._entity_is_scoped(bound):
+                return False
+            if (
+                event.trigger.match.client_id is not None
+                and event.trigger.match.client_id != self.client_id
+            ):
+                return False
+        payload = event.payload
+        if isinstance(payload, ClientReplyPayload):
+            thread_id = self._expand_template(payload.thread_ref, bound)
+            try:
+                return self._must_load(Thread, thread_id).client_id == self.client_id
+            except ToolExecutionError:
+                return False
+        if isinstance(payload, NewBankFeedPayload):
+            try:
+                bank = self._must_load(BankAccount, payload.bank_account_id)
+                return self._client_for_entity(bank.entity_id) == self.client_id
+            except ToolExecutionError:
+                return False
+        if isinstance(payload, DeadlinePayload):
+            if payload.task_id is None:
+                return False
+            try:
+                return (
+                    self._client_for_task(self._must_load(Task, payload.task_id))
+                    == self.client_id
+                )
+            except ToolExecutionError:
+                return False
+        if isinstance(payload, ApprovalDecisionPayload):
+            return isinstance(bound, Approval) and self._is_scoped_approval(bound)
+        if isinstance(payload, ReviewerNotePayload):
+            target = self._expand_template(payload.target_ref, bound)
+            try:
+                return self._client_for_reference(target) == self.client_id
+            except ToolExecutionError:
+                return False
+        return False
+
+    def _entity_is_scoped(self, entity: BaseModel) -> bool:
+        if isinstance(entity, InformationRequest):
+            return entity.client_id == self.client_id
+        if isinstance(entity, Approval):
+            return self._is_scoped_approval(entity)
+        if isinstance(entity, Message):
+            return self._client_for_message(entity) == self.client_id
+        if isinstance(entity, Workpaper):
+            return self._client_for_workpaper(entity) == self.client_id
+        if isinstance(entity, Task):
+            return self._client_for_task(entity) == self.client_id
+        return False
 
     def _require_attachments(self, references: Iterable[str]) -> None:
         for reference in references:
@@ -1767,13 +1973,10 @@ class WorldToolEngine:
 
     def _require_scoped_reference(self, reference: str) -> None:
         if reference.startswith("act-r"):
-            action = next(
-                (action for action in self._list(Action) if action.id == reference),
-                None,
-            )
-            if action is None:
+            if reference not in self._visible_action_ids:
                 raise ToolExecutionError(
-                    "NOT_FOUND", f"reference {reference!r} was not found"
+                    "SCOPE_VIOLATION",
+                    "calculation actions are visible only to the current engine session",
                 )
             return
         client_id = self._client_for_reference(reference)
@@ -1782,6 +1985,23 @@ class WorldToolEngine:
                 "NOT_FOUND", f"reference {reference!r} was not found"
             )
         self._require_scope(client_id)
+        document = next(
+            (item for item in self._list(Document) if item.id == reference), None
+        )
+        if document is not None and not self._document_is_available(document):
+            raise ToolExecutionError(
+                "NOT_FOUND", "document is not available at current world time"
+            )
+        transaction = next(
+            (item for item in self._list(BankTransaction) if item.id == reference),
+            None,
+        )
+        if transaction is not None and not self._bank_transaction_is_available(
+            transaction.id
+        ):
+            raise ToolExecutionError(
+                "NOT_FOUND", "bank transaction is not available at current world time"
+            )
 
     def _client_for_reference(self, reference: str) -> str | None:
         for document in self._list(Document):
@@ -1820,7 +2040,11 @@ class WorldToolEngine:
         return None
 
     def _save_provenance(
-        self, subject_ref: str, basis_ref: str, *, relation: str = "supported_by"
+        self,
+        subject_ref: str,
+        basis_ref: str,
+        *,
+        relation: ProvenanceRelation = "supported_by",
     ) -> ProvenanceRecord:
         provenance = ProvenanceRecord(
             id=self._new_id("prv"),
@@ -1859,14 +2083,18 @@ class WorldToolEngine:
         return False
 
     def _first_matching_entity(self, trigger: AfterEntity) -> BaseModel | None:
-        mapping: dict[str, type[Any]] = {
-            "information_request": InformationRequest,
-            "approval": Approval,
-            "message": Message,
-            "workpaper": Workpaper,
-            "task": Task,
-        }
-        for entity in self._list(mapping[trigger.entity_kind]):
+        entities: tuple[BaseModel, ...]
+        if trigger.entity_kind == "information_request":
+            entities = self._list(InformationRequest)
+        elif trigger.entity_kind == "approval":
+            entities = self._list(Approval)
+        elif trigger.entity_kind == "message":
+            entities = self._list(Message)
+        elif trigger.entity_kind == "workpaper":
+            entities = self._list(Workpaper)
+        else:
+            entities = self._list(Task)
+        for entity in entities:
             if self._matches_entity(entity, trigger):
                 return entity
         return None
@@ -1886,6 +2114,8 @@ class WorldToolEngine:
             client_id = self._client_for_workpaper(entity)
         elif isinstance(entity, Task):
             client_id = self._client_for_task(entity)
+        if client_id != self.client_id:
+            return False
         if match.client_id is not None and client_id != match.client_id:
             return False
         if match.status is not None and getattr(entity, "status", None) != match.status:
@@ -1910,14 +2140,6 @@ class WorldToolEngine:
                 return action.world_time_after
         return None
 
-    def _first_requested_approval(self) -> Approval | None:
-        approvals = [
-            approval
-            for approval in self._list(Approval)
-            if approval.status == "requested"
-        ]
-        return approvals[0] if approvals else None
-
     def _expand_template(self, value: str, entity: BaseModel | None) -> str:
         if entity is None:
             return value
@@ -1937,13 +2159,19 @@ class WorldToolEngine:
                 and self._bank_transaction_is_available(transaction.id)
             ]
         if source == "ledger_lines":
-            return self._tool_query_ledger(
+            ledger_result, _ = self._tool_query_ledger(
                 type(
                     "Ledger",
                     (),
                     {"account": None, "period": None, "status": None, "source": None},
                 )()
-            )[0]["lines"]
+            )
+            lines = ledger_result["lines"]
+            if isinstance(lines, list) and all(
+                isinstance(line, dict) for line in lines
+            ):
+                return [dict(line) for line in lines]
+            raise ToolExecutionError("TYPE_MISMATCH", "ledger source is malformed")
         raise ToolExecutionError("NOT_FOUND", f"data source {source!r} was not found")
 
     def _matches_predicates(
@@ -1959,16 +2187,24 @@ class WorldToolEngine:
                 )
             actual = row[field]
             try:
-                matches = {
-                    "eq": actual == expected,
-                    "ne": actual != expected,
-                    "gt": actual > expected,
-                    "lt": actual < expected,
-                    "contains": str(expected).casefold() in str(actual).casefold(),
-                    "between": isinstance(expected, list)
-                    and len(expected) == 2
-                    and expected[0] <= actual <= expected[1],
-                }[operation]
+                if operation == "eq":
+                    matches = actual == expected
+                elif operation == "ne":
+                    matches = actual != expected
+                elif operation == "gt":
+                    matches = actual > expected
+                elif operation == "lt":
+                    matches = actual < expected
+                elif operation == "contains":
+                    matches = str(expected).casefold() in str(actual).casefold()
+                elif operation == "between":
+                    matches = (
+                        isinstance(expected, list)
+                        and len(expected) == 2
+                        and expected[0] <= actual <= expected[1]
+                    )
+                else:
+                    raise KeyError(operation)
             except TypeError as error:
                 raise ToolExecutionError(
                     "TYPE_MISMATCH", "predicate compares incompatible values"
@@ -2015,6 +2251,11 @@ class WorldToolEngine:
             transaction_id = binding.removesuffix(".amount_minor")
             transaction = self._must_load(BankTransaction, transaction_id)
             self._require_scope(self._client_for_bank_transaction(transaction))
+            if not self._bank_transaction_is_available(transaction.id):
+                raise ToolExecutionError(
+                    "UNRESOLVED_BINDING",
+                    "bank transaction is not available at current world time",
+                )
             return Decimal(transaction.amount_minor)
         raise ToolExecutionError(
             "UNRESOLVED_BINDING", f"cannot resolve binding {binding!r}"
@@ -2086,4 +2327,4 @@ class WorldToolEngine:
     def _equal_with_tolerance(self, left: Any, right: Any, tolerance: int) -> bool:
         if isinstance(left, int | float) and isinstance(right, int | float):
             return abs(left - right) <= tolerance
-        return left == right
+        return bool(left == right)

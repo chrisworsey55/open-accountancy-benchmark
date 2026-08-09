@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -240,6 +240,6 @@ class ToolCallResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ok: bool
-    result: Any | None = None
+    result: JsonValue | None = None
     error: ToolError | None = None
     action_id: str | None = None

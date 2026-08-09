@@ -44,7 +44,7 @@ from .schemas import (
     UpdateWorkpaperInput,
 )
 
-ALL_INTERNAL_ROLES = frozenset(
+ALL_INTERNAL_ROLES: frozenset[Role] = frozenset(
     {
         "bookkeeper",
         "staff_accountant",
@@ -54,7 +54,9 @@ ALL_INTERNAL_ROLES = frozenset(
         "agent",
     }
 )
-BOOKKEEPING_ROLES = frozenset({"bookkeeper", "staff_accountant", "agent"})
+BOOKKEEPING_ROLES: frozenset[Role] = frozenset(
+    {"bookkeeper", "staff_accountant", "agent"}
+)
 
 
 @dataclass(frozen=True)
@@ -248,7 +250,7 @@ _DEFINITIONS = (
         DraftReplyInput,
         roles=BOOKKEEPING_ROLES,
         duration_minutes=3,
-        mutations=("Message",),
+        mutations=("Thread", "Message"),
     ),
     _definition(
         "send_reply",
@@ -266,7 +268,7 @@ _DEFINITIONS = (
         CreateWorkpaperInput,
         roles=BOOKKEEPING_ROLES,
         duration_minutes=10,
-        mutations=("Workpaper",),
+        mutations=("Workpaper", "ProvenanceRecord"),
         errors=("RECON_DOES_NOT_TIE", "PROVENANCE_REQUIRED"),
     ),
     _definition(
@@ -275,7 +277,7 @@ _DEFINITIONS = (
         UpdateWorkpaperInput,
         roles=BOOKKEEPING_ROLES,
         duration_minutes=5,
-        mutations=("Workpaper",),
+        mutations=("Workpaper", "ProvenanceRecord"),
         errors=("RECON_DOES_NOT_TIE", "PROVENANCE_REQUIRED"),
     ),
     _definition(
