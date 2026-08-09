@@ -11,7 +11,11 @@ import time
 from pathlib import Path
 from typing import Protocol, TextIO
 
-from mirrorfirm.harness.adapters.base import ModelAdapter, ModelResponse
+from mirrorfirm.harness.adapters.base import (
+    ModelAdapter,
+    ModelResponse,
+    ProviderPayload,
+)
 
 
 class ToolExecutor(Protocol):
@@ -29,7 +33,7 @@ def run_agent(
     system_prompt: str,
     user_prompt: str,
     tool_executor: ToolExecutor,
-    tools: list[dict],
+    tools: list[ProviderPayload],
     max_turns: int = 200,
     transcript_path: str | None = None,
 ) -> dict[str, object]:

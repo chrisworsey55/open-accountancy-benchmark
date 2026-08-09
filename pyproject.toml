@@ -24,6 +24,7 @@ dev = [
   "mypy>=1.13.0",
   "pytest>=8.0.0",
   "ruff>=0.8.0",
+  "types-pyyaml>=6.0.12.20260724",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -39,18 +40,6 @@ testpaths = ["tests"]
 files = ["mirrorfirm"]
 python_version = "3.12"
 strict = true
-
-[[tool.mypy.overrides]]
-module = ["yaml"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["mirrorfirm.harness.adapters.*"]
-disable_error_code = ["arg-type", "assignment", "attr-defined", "call-overload", "misc", "no-any-return", "type-arg", "union-attr"]
-
-[[tool.mypy.overrides]]
-module = ["mirrorfirm.harness.agent_loop", "mirrorfirm.reporting.report"]
-disable_error_code = ["type-arg", "var-annotated"]
 
 [tool.ruff]
 target-version = "py312"

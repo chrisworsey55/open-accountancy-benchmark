@@ -5,10 +5,16 @@
 """Mistral chat-completions adapter."""
 
 import os
+from typing import Any, cast
 
 from mistralai.client import Mistral
 
-from mirrorfirm.harness.adapters.base import ModelAdapter, ModelResponse, ToolCall
+from mirrorfirm.harness.adapters.base import (
+    ModelAdapter,
+    ModelResponse,
+    ProviderPayload,
+    ToolCall,
+)
 
 REASONING_MODELS = {"mistral-medium-3.5", "mistral-small-2603"}
 
@@ -30,7 +36,9 @@ class MistralAdapter(ModelAdapter):
             timeout_ms=600_000,
         )
 
-    def chat(self, messages: list[dict], tools: list[dict]) -> ModelResponse:
+    def chat(
+        self, messages: list[ProviderPayload], tools: list[ProviderPayload]
+    ) -> ModelResponse:
         mistral_tools = [
             {
                 "type": "function",
@@ -42,7 +50,7 @@ class MistralAdapter(ModelAdapter):
             }
             for tool in tools
         ]
-        kwargs: dict = {
+        kwargs: dict[str, object] = {
             "model": self.model,
             "messages": messages,
             "tools": mistral_tools,
@@ -52,7 +60,9 @@ class MistralAdapter(ModelAdapter):
         if self.reasoning_effort and self.model in REASONING_MODELS:
             kwargs["reasoning_effort"] = self.reasoning_effort
 
-        response = self.client.chat.complete(**kwargs)
+        # Mistral's generated union types vary by SDK version; isolate the raw wire
+        # contract at the provider invocation rather than weakening package typing.
+        response = cast(Any, self.client.chat).complete(**kwargs)
         message = response.choices[0].message
         tool_calls = [
             ToolCall(
@@ -63,7 +73,7 @@ class MistralAdapter(ModelAdapter):
             for tool_call in message.tool_calls or []
         ]
         content, text = self._serialize_content(message.content)
-        message_dict: dict = {"role": "assistant", "content": content}
+        message_dict: ProviderPayload = {"role": "assistant", "content": content}
         if message.tool_calls:
             message_dict["tool_calls"] = [
                 {
@@ -86,47 +96,53 @@ class MistralAdapter(ModelAdapter):
         )
 
     @staticmethod
-    def make_tool_result_messages(results: list[tuple[str, str]]) -> list[dict]:
+    def make_tool_result_messages(
+        results: list[tuple[str, str]],
+    ) -> list[ProviderPayload]:
         return [
             {"role": "tool", "tool_call_id": tool_call_id, "content": result}
             for tool_call_id, result in results
         ]
 
     @staticmethod
-    def make_system_message(content: str) -> dict:
+    def make_system_message(content: str) -> ProviderPayload:
         return {"role": "system", "content": content}
 
     @staticmethod
-    def make_user_message(content: str) -> dict:
+    def make_user_message(content: str) -> ProviderPayload:
         return {"role": "user", "content": content}
 
     @staticmethod
-    def _serialize_content(content: str | list) -> tuple[str | list[dict], str]:
+    def _serialize_content(
+        content: str | list[object] | None,
+    ) -> tuple[str | list[ProviderPayload], str]:
         if isinstance(content, str):
             return content, content
         if not content:
             return "", ""
 
-        serialized = []
-        text_parts = []
+        serialized: list[ProviderPayload] = []
+        text_parts: list[str] = []
         for chunk in content:
-            if chunk.type == "thinking":
+            # Content chunks are provider-defined polymorphic SDK objects.
+            provider_chunk = cast(Any, chunk)
+            if provider_chunk.type == "thinking":
                 thinking = [
                     {"type": "text", "text": text_chunk.text}
-                    for text_chunk in chunk.thinking
+                    for text_chunk in provider_chunk.thinking
                     if hasattr(text_chunk, "text")
                 ]
-                entry: dict = {"type": "thinking", "thinking": thinking}
+                entry: ProviderPayload = {"type": "thinking", "thinking": thinking}
                 if (
-                    hasattr(chunk, "signature")
-                    and chunk.signature
-                    and str(chunk.signature) != "Unset"
+                    hasattr(provider_chunk, "signature")
+                    and provider_chunk.signature
+                    and str(provider_chunk.signature) != "Unset"
                 ):
-                    entry["signature"] = chunk.signature
+                    entry["signature"] = provider_chunk.signature
                 serialized.append(entry)
-            elif chunk.type == "text":
-                serialized.append({"type": "text", "text": chunk.text})
-                text_parts.append(chunk.text)
+            elif provider_chunk.type == "text":
+                serialized.append({"type": "text", "text": provider_chunk.text})
+                text_parts.append(provider_chunk.text)
             else:
-                serialized.append({"type": chunk.type})
+                serialized.append({"type": provider_chunk.type})
         return serialized, "\n".join(text_parts)

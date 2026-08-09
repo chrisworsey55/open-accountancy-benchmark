@@ -5,11 +5,17 @@
 """Google Generative AI API adapter."""
 
 import json
+from typing import Any, cast
 
 from google import genai
 from google.genai import types
 
-from mirrorfirm.harness.adapters.base import ModelAdapter, ModelResponse, ToolCall
+from mirrorfirm.harness.adapters.base import (
+    ModelAdapter,
+    ModelResponse,
+    ProviderPayload,
+    ToolCall,
+)
 
 THINKING_LEVEL_MAP = {
     "minimal": "MINIMAL",
@@ -32,18 +38,22 @@ class GoogleAdapter(ModelAdapter):
         super().__init__(model, temperature, reasoning_effort)
         self.max_tokens = max_tokens
         self.client = genai.Client()
-        self._chat = None
-        self._system_instruction = None
-        self._tools = None
+        self._chat: Any | None = None
+        self._system_instruction: str | None = None
+        self._tools: list[Any] | None = None
 
-    def chat(self, messages: list[dict], tools: list[dict]) -> ModelResponse:
+    def chat(
+        self, messages: list[ProviderPayload], tools: list[ProviderPayload]
+    ) -> ModelResponse:
         if self._chat is None:
             self._tools = self._translate_tools(tools)
             for message in messages:
                 if message["role"] == "system":
                     self._system_instruction = message["content"]
 
-            config = types.GenerateContentConfig(
+            # Google SDK payload types expose private/version-specific fields.  Keep
+            # the unavoidable vendor boundary at construction and transport only.
+            config = cast(Any, types).GenerateContentConfig(
                 temperature=self.temperature,
                 max_output_tokens=self.max_tokens,
                 tools=self._tools,
@@ -62,14 +72,16 @@ class GoogleAdapter(ModelAdapter):
                     config._raw_data["thinking_config"] = thinking_dict
                 else:
                     try:
-                        config.thinking_config = types.ThinkingConfig(
+                        config.thinking_config = cast(Any, types).ThinkingConfig(
                             thinking_level=THINKING_LEVEL_MAP[self.reasoning_effort],
                             include_thoughts=True,
                         )
                     except Exception:
                         pass
 
-            self._chat = self.client.chats.create(model=self.model, config=config)
+            self._chat = cast(Any, self.client.chats).create(
+                model=self.model, config=config
+            )
             user_message = next(
                 (
                     message.get("content", "")
@@ -78,7 +90,7 @@ class GoogleAdapter(ModelAdapter):
                 ),
                 "Begin.",
             )
-            response = self._chat.send_message(user_message or "Begin.")
+            response = cast(Any, self._chat).send_message(user_message or "Begin.")
         else:
             last_message = messages[-1]
             if last_message.get("role") == "user" and "parts" in last_message:
@@ -94,9 +106,9 @@ class GoogleAdapter(ModelAdapter):
                         )
                     elif "text" in part_dict:
                         parts.append(types.Part.from_text(text=part_dict["text"]))
-                response = self._chat.send_message(parts)
+                response = cast(Any, self._chat).send_message(parts)
             else:
-                response = self._chat.send_message(
+                response = cast(Any, self._chat).send_message(
                     last_message.get("content", "Continue.")
                 )
 
@@ -141,7 +153,9 @@ class GoogleAdapter(ModelAdapter):
         )
 
     @staticmethod
-    def make_tool_result_messages(results: list[tuple[str, str]]) -> list[dict]:
+    def make_tool_result_messages(
+        results: list[tuple[str, str]],
+    ) -> list[ProviderPayload]:
         return [
             {
                 "role": "user",
@@ -158,15 +172,15 @@ class GoogleAdapter(ModelAdapter):
         ]
 
     @staticmethod
-    def make_system_message(content: str) -> dict:
+    def make_system_message(content: str) -> ProviderPayload:
         return {"role": "system", "content": content}
 
     @staticmethod
-    def make_user_message(content: str) -> dict:
+    def make_user_message(content: str) -> ProviderPayload:
         return {"role": "user", "parts": [{"text": content}]}
 
     @staticmethod
-    def _translate_tools(tools: list[dict]) -> list:
+    def _translate_tools(tools: list[ProviderPayload]) -> list[Any]:
         declarations = [
             types.FunctionDeclaration(
                 name=tool["name"],

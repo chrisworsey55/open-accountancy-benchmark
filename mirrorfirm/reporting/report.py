@@ -9,14 +9,19 @@ import argparse
 import html
 import json
 from pathlib import Path
+from typing import Any, TypeAlias
+
+# The retained WP-01 report consumes legacy evaluator JSON rather than a Mirror Firm
+# domain model. Keep that uncontrolled file boundary explicit and local.
+ScorePayload: TypeAlias = dict[str, Any]
 
 
-def _normalize_dual_scores(dual: dict) -> dict:
+def _normalize_dual_scores(dual: ScorePayload) -> ScorePayload:
     """Flatten a dual-judge aggregate into a single-report shape."""
 
     per_judge = dual.get("per_judge", {})
     judges = dual.get("judges") or list(per_judge)
-    by_judge: dict[str, dict[str, dict]] = {}
+    by_judge: dict[str, dict[str, ScorePayload]] = {}
     for judge_model, scores in per_judge.items():
         by_judge[judge_model] = {
             criterion["id"]: criterion
@@ -45,7 +50,7 @@ def _normalize_dual_scores(dual: dict) -> dict:
             }
         )
 
-    document_coverage = next(
+    document_coverage: ScorePayload = next(
         (
             scores["doc_coverage"]
             for scores in per_judge.values()
@@ -134,7 +139,7 @@ details {{ border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 8px; }}
     return output_path
 
 
-def _render_criterion(criterion: dict) -> str:
+def _render_criterion(criterion: ScorePayload) -> str:
     verdict = str(criterion.get("verdict", "fail"))
     verdict_class = "pass" if verdict == "pass" else "fail"
     return f"""<details>

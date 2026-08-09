@@ -4,9 +4,16 @@
 # Adapted for Mirror Firm WP-01: package imports are self-contained.
 """OpenAI Responses API adapter."""
 
+from typing import Any, cast
+
 import openai
 
-from mirrorfirm.harness.adapters.base import ModelAdapter, ModelResponse, ToolCall
+from mirrorfirm.harness.adapters.base import (
+    ModelAdapter,
+    ModelResponse,
+    ProviderPayload,
+    ToolCall,
+)
 
 
 class OpenAIAdapter(ModelAdapter):
@@ -22,10 +29,12 @@ class OpenAIAdapter(ModelAdapter):
         super().__init__(model, temperature, reasoning_effort)
         self.max_tokens = max_tokens
         self.client = openai.OpenAI()
-        self._context: list = []
+        self._context: list[ProviderPayload] = []
         self._system_instructions: str | None = None
 
-    def chat(self, messages: list[dict], tools: list[dict]) -> ModelResponse:
+    def chat(
+        self, messages: list[ProviderPayload], tools: list[ProviderPayload]
+    ) -> ModelResponse:
         if not self._context:
             for message in messages:
                 if message["role"] == "system":
@@ -54,7 +63,8 @@ class OpenAIAdapter(ModelAdapter):
         else:
             kwargs["temperature"] = self.temperature
 
-        response = self.client.responses.create(**kwargs)
+        # The Responses SDK overload cannot describe the normalized provider payload.
+        response = cast(Any, self.client.responses).create(**kwargs)
         tool_calls = []
         text_parts = []
         output_items = []
@@ -85,7 +95,9 @@ class OpenAIAdapter(ModelAdapter):
             output_tokens=response.usage.output_tokens if response.usage else 0,
         )
 
-    def make_tool_result_messages(self, results: list[tuple[str, str]]) -> list[dict]:
+    def make_tool_result_messages(
+        self, results: list[tuple[str, str]]
+    ) -> list[ProviderPayload]:
         items = []
         for tool_call_id, result in results:
             item = {
@@ -97,16 +109,16 @@ class OpenAIAdapter(ModelAdapter):
             items.append(item)
         return items
 
-    def make_system_message(self, content: str) -> dict:
+    def make_system_message(self, content: str) -> ProviderPayload:
         self._system_instructions = content
         return {"role": "system", "content": content}
 
     @staticmethod
-    def make_user_message(content: str) -> dict:
+    def make_user_message(content: str) -> ProviderPayload:
         return {"role": "user", "content": content}
 
     @staticmethod
-    def _translate_tool(tool: dict) -> dict:
+    def _translate_tool(tool: ProviderPayload) -> ProviderPayload:
         return {
             "type": "function",
             "name": tool["name"],
@@ -115,24 +127,26 @@ class OpenAIAdapter(ModelAdapter):
         }
 
     @staticmethod
-    def _item_to_dict(item: object) -> dict:
-        if item.type == "function_call":
+    def _item_to_dict(item: object) -> ProviderPayload:
+        # Response output variants are SDK-owned; contain their untyped edge here.
+        provider_item = cast(Any, item)
+        if provider_item.type == "function_call":
             return {
                 "type": "function_call",
-                "call_id": item.call_id,
-                "name": item.name,
-                "arguments": item.arguments,
+                "call_id": provider_item.call_id,
+                "name": provider_item.name,
+                "arguments": provider_item.arguments,
             }
-        if item.type == "message":
+        if provider_item.type == "message":
             return {
                 "type": "message",
-                "role": getattr(item, "role", "assistant"),
+                "role": getattr(provider_item, "role", "assistant"),
                 "content": [
                     {"type": "text", "text": content.text}
-                    for content in item.content
+                    for content in provider_item.content
                     if hasattr(content, "text")
                 ],
             }
-        if hasattr(item, "model_dump"):
-            return item.model_dump()
-        return {"type": item.type}
+        if hasattr(provider_item, "model_dump"):
+            return cast(ProviderPayload, provider_item.model_dump())
+        return {"type": provider_item.type}

@@ -6,10 +6,16 @@
 
 import os
 import time
+from typing import Any, cast
 
 import openai
 
-from mirrorfirm.harness.adapters.base import ModelAdapter, ModelResponse, ToolCall
+from mirrorfirm.harness.adapters.base import (
+    ModelAdapter,
+    ModelResponse,
+    ProviderPayload,
+    ToolCall,
+)
 
 _MAX_RETRIES = 8
 
@@ -35,10 +41,12 @@ class FireworksAdapter(ModelAdapter):
             ),
         )
 
-    def chat(self, messages: list[dict], tools: list[dict]) -> ModelResponse:
+    def chat(
+        self, messages: list[ProviderPayload], tools: list[ProviderPayload]
+    ) -> ModelResponse:
         response = None
         last_error: Exception | None = None
-        kwargs: dict = {}
+        kwargs: dict[str, object] = {}
         if self.reasoning_effort:
             kwargs["extra_body"] = {"reasoning_effort": self.reasoning_effort}
         else:
@@ -46,7 +54,8 @@ class FireworksAdapter(ModelAdapter):
 
         for attempt in range(_MAX_RETRIES):
             try:
-                response = self.client.chat.completions.create(
+                # Fireworks accepts OpenAI-shaped payloads beyond the SDK overload.
+                response = cast(Any, self.client.chat.completions).create(
                     model=self.model,
                     messages=messages,
                     tools=[self._translate_tool(tool) for tool in tools],
@@ -79,7 +88,7 @@ class FireworksAdapter(ModelAdapter):
         ]
         usage = response.usage
         return ModelResponse(
-            message=message_obj.model_dump(exclude_none=True),
+            message=cast(ProviderPayload, message_obj.model_dump(exclude_none=True)),
             tool_calls=tool_calls,
             text=message_obj.content or "",
             input_tokens=usage.prompt_tokens if usage else 0,
@@ -87,22 +96,24 @@ class FireworksAdapter(ModelAdapter):
         )
 
     @staticmethod
-    def make_tool_result_messages(results: list[tuple[str, str]]) -> list[dict]:
+    def make_tool_result_messages(
+        results: list[tuple[str, str]],
+    ) -> list[ProviderPayload]:
         return [
             {"role": "tool", "tool_call_id": tool_call_id, "content": result}
             for tool_call_id, result in results
         ]
 
     @staticmethod
-    def make_system_message(content: str) -> dict:
+    def make_system_message(content: str) -> ProviderPayload:
         return {"role": "system", "content": content}
 
     @staticmethod
-    def make_user_message(content: str) -> dict:
+    def make_user_message(content: str) -> ProviderPayload:
         return {"role": "user", "content": content}
 
     @staticmethod
-    def _translate_tool(tool: dict) -> dict:
+    def _translate_tool(tool: ProviderPayload) -> ProviderPayload:
         return {
             "type": "function",
             "function": {
