@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mirror-firm"
+version = "0.1.0"
+description = "An open-source synthetic accounting firm and agent-evaluation environment."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "GIH" }]
+dependencies = [
+  "anthropic>=0.40.0",
+  "google-genai>=1.0.0",
+  "mistralai>=2.0.0",
+  "openai>=1.50.0",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.13.0",
+  "pytest>=8.0.0",
+  "ruff>=0.8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mirrorfirm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+files = ["mirrorfirm/core"]
+python_version = "3.12"
+strict = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

@@ -1,0 +1,18 @@
+Mirror Firm includes adapted files derived from harveyai/harvey-labs, licensed under
+the MIT License, at commit 55510f0e609ffa5cf6f5df17d9a813ce4bb33d0c.
+
+The upstream licence is reproduced verbatim in LICENSES/harvey-labs.MIT.txt.
+
+Derived files:
+- mirrorfirm/harness/adapters/__init__.py
+- mirrorfirm/harness/adapters/base.py
+- mirrorfirm/harness/adapters/anthropic.py
+- mirrorfirm/harness/adapters/openai.py
+- mirrorfirm/harness/adapters/google.py
+- mirrorfirm/harness/adapters/mistral.py
+- mirrorfirm/harness/adapters/fireworks.py
+- mirrorfirm/harness/agent_loop.py
+- mirrorfirm/reporting/report.py
+
+No code or content from Mercor Archipelago, Thrive private systems, or Harvey LAB
+legal tasks, task schemas, skills, sandbox, or tool executor is included.
