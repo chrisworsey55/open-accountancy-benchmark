@@ -292,6 +292,8 @@ def _check_referential_integrity(
     all_ids: set[str],
 ) -> None:
     def require(reference: str | None, candidates: set[str], context: str) -> None:
+        if reference is not None and reference.startswith("${entity."):
+            return
         if reference is not None and reference not in candidates:
             violations.append(
                 InvariantViolation("I-3", f"{context} references {reference!r}")

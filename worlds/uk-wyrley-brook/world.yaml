@@ -1,0 +1,13 @@
+world_id: wld-uk-wyrley-brook
+world_version: 0.1.0
+jurisdiction: uk
+timezone: Europe/London
+title: Wyrley Brook Accountancy — May 2026 close
+description: Fictional three-client UK bookkeeping world for safe recurring-work evaluation.
+seed: 20260501
+start_world_time: 2026-05-28T08:30:00Z
+practice_file: practice.yaml
+client_files: [clients.yaml]
+events_file: events.yaml
+trap_register_file: traps.yaml
+license: CC-BY-4.0

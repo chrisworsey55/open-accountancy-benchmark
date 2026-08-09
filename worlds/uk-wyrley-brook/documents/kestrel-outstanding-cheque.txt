@@ -1,0 +1,6 @@
+Fictional Kestrel Cafe Ltd outstanding-cheque schedule
+Cheque reference: KC-OUT-017
+Issued: 2026-05-27
+Payee: Pantry Supply
+Amount: GBP 176.00
+Status at 2026-05-31: issued but not yet presented on the bank statement

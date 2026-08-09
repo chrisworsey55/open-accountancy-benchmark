@@ -1,0 +1,3 @@
+Fictional April client-dinners receipt bundle
+Two client entertainment meals were charged at £120.00 and £96.00 gross.
+Input VAT on client entertainment is blocked.

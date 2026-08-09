@@ -1,0 +1,15 @@
+- id: cli-brightpath
+  name: BrightPath Tutoring Ltd
+  status: active
+  entity: {id: ent-brightpath, legal_form: limited_company, basis: accrual, currency: GBP, tax: {kind: uk, vat_registered: true, vat_number: GB123456789, vat_scheme: standard}}
+  contacts: [per-brightpath-contact]
+- id: cli-harper
+  name: Harper Joinery
+  status: active
+  entity: {id: ent-harper, legal_form: sole_trader, basis: cash, currency: GBP, tax: {kind: uk, vat_registered: false, vat_number: null, vat_scheme: none}}
+  contacts: [per-harper-contact]
+- id: cli-kestrel
+  name: Kestrel Cafe Ltd
+  status: active
+  entity: {id: ent-kestrel, legal_form: limited_company, basis: cash, currency: GBP, tax: {kind: uk, vat_registered: true, vat_number: GB987654321, vat_scheme: standard}}
+  contacts: [per-kestrel-contact]

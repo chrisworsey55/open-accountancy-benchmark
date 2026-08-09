@@ -1,0 +1,9 @@
+id: prc-wyrley-brook
+name: Wyrley Brook Accountancy
+jurisdiction: uk
+people: [per-agent, per-reviewer, per-partner, per-brightpath-contact, per-harper-contact, per-kestrel-contact]
+policies:
+  approval_required_for: [post_journal, post_to_closed_period, send_external_message]
+  outbound_comms: agent_may_send
+  materiality_minor: 50000
+  posting_to_closed_requires: reviewer

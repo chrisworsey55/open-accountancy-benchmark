@@ -1,0 +1,2 @@
+Fictional bank-feed review note
+Rows KC-DUP-22 are identical in amount, date, counterparty and reference. One row is duplicated.
