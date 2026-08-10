@@ -984,10 +984,12 @@ class WorldToolEngine:
             update={"status": "final", "finalized_world_time": self.now}
         )
         self.store.save(final)
+        reconciliation_mutations = self._flag_reconciliation_transactions(final.body)
         return {"workpaper": self._dump(final)}, [
             self._mutation(
                 "Workpaper", final.id, "status_changed", "workpaper finalized"
-            )
+            ),
+            *reconciliation_mutations,
         ]
 
     def _tool_update_task_status(
@@ -1525,6 +1527,45 @@ class WorldToolEngine:
                     "PROVENANCE_REQUIRED", "material workpaper rows require provenance"
                 )
             self._require_provenance(references)
+
+    def _flag_reconciliation_transactions(self, body: Any) -> list[Mutation]:
+        """Derive reconciliation flags from finalised workpaper provenance refs."""
+
+        if not isinstance(body, BankReconWorkpaper):
+            return []
+        references = [
+            reference for item in body.outstanding for reference in item.provenance_refs
+        ]
+        references.extend(
+            reference for item in body.unresolved for reference in item.provenance_refs
+        )
+        mutations: list[Mutation] = []
+        for transaction_id in sorted(set(references)):
+            transaction = next(
+                (
+                    candidate
+                    for candidate in self._list(BankTransaction)
+                    if candidate.id == transaction_id
+                ),
+                None,
+            )
+            if transaction is None:
+                continue
+            self._require_scope(self._client_for_bank_transaction(transaction))
+            if transaction.reconciliation_status == "flagged":
+                continue
+            self.store.save(
+                transaction.model_copy(update={"reconciliation_status": "flagged"})
+            )
+            mutations.append(
+                self._mutation(
+                    "BankTransaction",
+                    transaction.id,
+                    "status_changed",
+                    "flagged by finalised bank reconciliation provenance",
+                )
+            )
+        return mutations
 
     def _save_workpaper_provenance(
         self, workpaper: Workpaper

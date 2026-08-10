@@ -715,7 +715,11 @@ journal: Dr acc-7502 10000, Dr acc-2202 2000, Cr bank 12000.
   bank_reconciliation must satisfy I-6 or list `unresolved[]` (RECON_DOES_NOT_TIE
   returns the exact difference); PROVENANCE_REQUIRED on material rows.
 - `finalize_workpaper(workpaper_id)` - duration 2. draft → final; re-checks I-6 +
-  provenance; final immutable (reviewer `reopen_workpaper` event → draft). Errors:
+  provenance. For a finalised `bank_reconciliation`, any BankTransaction id appearing
+  in an outstanding or unresolved item's `provenance_refs` is derived to
+  `reconciliation_status="flagged"` transactionally with the finalisation (it is not
+  classified or posted by this effect). final immutable (reviewer `reopen_workpaper`
+  event → draft). Errors:
   ALREADY_FINAL, RECON_DOES_NOT_TIE, PROVENANCE_REQUIRED.
 - `update_task_status(task_id, status, blocked_on?)` - duration 1; guards: blocked
   requires ref; `done` where review required → REVIEW_REQUIRED.
