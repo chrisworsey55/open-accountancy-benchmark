@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Derived from harveyai/harvey-labs (MIT), commit
 # 55510f0e609ffa5cf6f5df17d9a813ce4bb33d0c.
-# Adapted for Mirror Firm WP-01: unsafe shell/file tools were removed and the executor
-# is represented by a local protocol until WP-07 introduces the tool registry and WP-08
-# adds MCP routing, clock/event injection, budgets, and explicit finish_episode handling.
-"""Minimal provider-agnostic agent loop derived from Harvey LAB."""
+# Adapted for Mirror Firm WP-08: unsafe shell/file tools remain removed; the stateful
+# executor routes only declared tools through local MCP and makes finish explicit.
+"""Provider-agnostic bounded loop for a stateful Mirror Firm episode."""
 
 import json
 import time
@@ -19,13 +18,25 @@ from mirrorfirm.harness.adapters.base import (
 
 
 class ToolExecutor(Protocol):
-    """Minimal executor contract for the future typed-world tool layer."""
+    """Stateful MCP executor contract used by the provider-agnostic loop."""
 
     def execute(self, name: str, arguments: str) -> str:
         """Execute one tool call and return a serialized result."""
 
     def get_metrics(self) -> dict[str, object]:
         """Return executor metrics for reporting."""
+
+    @property
+    def is_finished(self) -> bool:
+        """Whether a successful ``finish_episode`` call made the world terminal."""
+
+    @property
+    def budget_exhausted(self) -> bool:
+        """Whether a tool-level episode budget has been exhausted."""
+
+    @property
+    def finish_summary(self) -> dict[str, object] | None:
+        """Return the successful terminal tool output, if one exists."""
 
 
 def run_agent(
@@ -36,12 +47,20 @@ def run_agent(
     tools: list[ProviderPayload],
     max_turns: int = 200,
     transcript_path: str | None = None,
+    max_tokens: int | None = None,
+    require_finish_episode: bool = False,
 ) -> dict[str, object]:
-    """Run the generic adapter loop until the model stops or reaches ``max_turns``.
+    """Run a bounded stateful episode until it stops, finishes, or exhausts budget.
 
-    WP-01 intentionally leaves world lifecycle semantics to WP-08. In particular, this
-    scaffold does not expose a shell, a filesystem, or a default tool set.
+    The loop accepts only provider-normalized tool calls.  The executor performs the
+    actual MCP call and world-time enforcement; token accounting is checked before
+    any response's tool calls are permitted to mutate the world.
     """
+
+    if max_turns <= 0:
+        raise ValueError("max_turns must be positive")
+    if max_tokens is not None and max_tokens <= 0:
+        raise ValueError("max_tokens must be positive when specified")
 
     messages = [
         adapter.make_system_message(system_prompt),
@@ -53,6 +72,7 @@ def run_agent(
     start_time = time.time()
     last_response: ModelResponse | None = None
     context_overflow = False
+    token_budget_exhausted = False
 
     transcript_file: TextIO | None = None
     if transcript_path:
@@ -82,6 +102,13 @@ def run_agent(
             if transcript_file:
                 _log_turn(transcript_file, turn_count, response)
 
+            if (
+                max_tokens is not None
+                and total_input_tokens + total_output_tokens > max_tokens
+            ):
+                token_budget_exhausted = True
+                break
+
             if not response.tool_calls:
                 break
 
@@ -97,25 +124,42 @@ def run_agent(
                         result,
                     )
                 tool_results.append((tool_call.id, result))
+                if tool_executor.budget_exhausted or tool_executor.is_finished:
+                    break
             messages.extend(adapter.make_tool_result_messages(tool_results))
+            if tool_executor.budget_exhausted or tool_executor.is_finished:
+                break
     finally:
         if transcript_file:
             transcript_file.close()
 
+    metrics = tool_executor.get_metrics()
+    episode_finished = tool_executor.is_finished
+    step_budget_exhausted = metrics.get("step_budget_exhausted") is True
+    world_time_budget_exhausted = metrics.get("world_time_budget_exhausted") is True
+    finished_cleanly = (
+        not context_overflow
+        and not token_budget_exhausted
+        and not tool_executor.budget_exhausted
+        and last_response is not None
+        and (
+            episode_finished if require_finish_episode else not last_response.tool_calls
+        )
+    )
     return {
         "messages": messages,
         "turn_count": turn_count,
         "input_tokens": total_input_tokens,
         "output_tokens": total_output_tokens,
         "wall_clock_seconds": round(time.time() - start_time, 2),
-        "finished_cleanly": (
-            not context_overflow
-            and last_response is not None
-            and not last_response.tool_calls
-        ),
+        "finished_cleanly": finished_cleanly,
         "context_overflow": context_overflow,
-        "tool_metrics": tool_executor.get_metrics(),
-        "finish_summary": None,
+        "token_budget_exhausted": token_budget_exhausted,
+        "step_budget_exhausted": step_budget_exhausted,
+        "world_time_budget_exhausted": world_time_budget_exhausted,
+        "episode_finished": episode_finished,
+        "tool_metrics": metrics,
+        "finish_summary": tool_executor.finish_summary,
     }
 
 

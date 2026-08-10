@@ -79,6 +79,7 @@ class WorldToolEngine:
         registry: ToolRegistry = DEFAULT_REGISTRY,
         episode_run_id: str = "run-r000001",
         snapshot_dir: str | Path | None = None,
+        active_event_ids: Iterable[str] | None = None,
     ) -> None:
         self.store = store
         self.world_root = Path(world_root).resolve()
@@ -88,6 +89,9 @@ class WorldToolEngine:
             Path(snapshot_dir).resolve()
             if snapshot_dir is not None
             else store.path.parent / "snapshots"
+        )
+        self._active_event_ids = (
+            frozenset(active_event_ids) if active_event_ids is not None else None
         )
         self.actor = self._must_load(Person, actor_id)
         self.engagement = self._must_load(Engagement, engagement_id)
@@ -212,6 +216,12 @@ class WorldToolEngine:
         return (
             actions[-1].world_time_after if actions else self.manifest.start_world_time
         )
+
+    @property
+    def finished(self) -> bool:
+        """Whether a successful terminal ``finish_episode`` Action was committed."""
+
+        return self._finished
 
     def _dispatch(
         self, name: str, input_value: BaseModel
@@ -1110,6 +1120,11 @@ class WorldToolEngine:
     ) -> tuple[Event, datetime, BaseModel | None] | None:
         candidates: list[tuple[datetime, Event, BaseModel | None]] = []
         for event in self._list(Event):
+            if (
+                self._active_event_ids is not None
+                and event.id not in self._active_event_ids
+            ):
+                continue
             if event.fired or event.id in self._pending_fired_event_ids:
                 continue
             scheduled = self._event_due_time(event)
