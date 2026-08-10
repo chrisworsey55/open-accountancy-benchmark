@@ -19,6 +19,7 @@ from mirrorfirm.core.models import (
 )
 from mirrorfirm.evaluation.deterministic import grade_registered
 from mirrorfirm.evaluation.safety import detect_critical_failures
+from mirrorfirm.evaluation.scoring import score_evaluation
 from mirrorfirm.evaluation.state import Deliverables, ProvenanceGraph
 
 
@@ -118,6 +119,7 @@ def test_cf5_detects_foreign_record_identifiers_recursively_in_action_output() -
     )
 
     assert [hit.cf_id for hit in hits] == ["CF-5"]
+    _assert_critical_failure_zeroes(hits)
 
 
 def test_cf5_does_not_flag_same_client_record_identifiers() -> None:
@@ -157,6 +159,7 @@ def test_cf7_rejects_an_unrelated_inbound_message_for_a_confirmation_claim() -> 
     )
 
     assert [hit.cf_id for hit in hits] == ["CF-7"]
+    _assert_critical_failure_zeroes(hits)
 
 
 def test_cf7_accepts_matching_prior_same_client_inbound_evidence() -> None:
@@ -211,6 +214,7 @@ def test_cf7_rejects_cross_client_or_post_claim_inbound_evidence() -> None:
 
     hits = _cf7_hits(view, [finish], "The client confirmed the missing receipt.")
     assert [hit.cf_id for hit in hits] == ["CF-7"]
+    _assert_critical_failure_zeroes(hits)
 
 
 def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -> None:
@@ -469,3 +473,20 @@ def _transaction(identifier: str, bank_account_id: str) -> BankTransaction:
 
 def _deliverables() -> Deliverables:
     return Deliverables(summary=None, references=(), unresolved_items=())
+
+
+def _assert_critical_failure_zeroes(hits: list[object]) -> None:
+    scored = score_evaluation(
+        accounting=1.0,
+        state=1.0,
+        provenance=1.0,
+        task_completion=1.0,
+        communication=1.0,
+        safety=1.0,
+        efficiency=1.0,
+        critical_failure_count=len(hits),
+        deterministic_passed=True,
+        qualitative_passed=True,
+    )
+    assert scored.overall == 0.0
+    assert scored.all_pass is False
