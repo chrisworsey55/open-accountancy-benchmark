@@ -79,6 +79,12 @@ class UnresolvedParams(GraderParams):
     min_items: int = 1
 
 
+class ProvenanceCompleteParams(GraderParams):
+    """Episode outputs that an author explicitly requires to carry provenance."""
+
+    target_refs: list[str] = Field(default_factory=list)
+
+
 class ExpectedStateParams(GraderParams):
     """State assertions supplied by an episode's expected-state contract."""
 
@@ -150,7 +156,7 @@ class ClassificationMapGrader:
             params.expected_accounts.items()
         ):
             actual_accounts = {
-                line.account_id
+                candidate.account_id
                 for journal in journals
                 for line in journal.lines
                 if line.bank_transaction_id == transaction_id
@@ -258,7 +264,7 @@ class UnresolvedFlaggedGrader:
 @dataclass(frozen=True)
 class ProvenanceCompleteGrader:
     grader_id: ClassVar[str] = "provenance_complete"
-    Params: ClassVar[type[GraderParams]] = EmptyParams
+    Params: ClassVar[type[GraderParams]] = ProvenanceCompleteParams
 
     def grade(
         self,
@@ -269,21 +275,41 @@ class ProvenanceCompleteGrader:
         deliverables: Deliverables,
         params: GraderParams,
     ) -> CriterionResult:
-        del initial, actions, deliverables, params
+        del initial, deliverables
+        assert isinstance(params, ProvenanceCompleteParams)
         missing: list[str] = []
-        for paper in final.list(Workpaper):
+        journal_ids, workpaper_ids = _episode_provenance_subjects(actions, params)
+        papers = by_id(final, Workpaper)
+        journals = by_id(final, Journal)
+        unknown_targets = {
+            reference
+            for reference in params.target_refs
+            if reference not in papers and reference not in journals
+        }
+        missing.extend(sorted(unknown_targets))
+
+        for workpaper_id in sorted(workpaper_ids):
+            paper = papers.get(workpaper_id)
+            if paper is None:
+                missing.append(workpaper_id)
+                continue
             if paper.status != "final":
+                missing.append(workpaper_id)
                 continue
             refs = _workpaper_refs(paper)
             if refs and not refs.issubset(provenance.bases_for(paper.id)):
-                missing.append(paper.id)
-        for journal in final.list(Journal):
+                missing.append(workpaper_id)
+        for journal_id in sorted(journal_ids):
+            journal = journals.get(journal_id)
+            if journal is None:
+                missing.append(journal_id)
+                continue
             if (
                 journal.status in {"proposed", "approved", "posted"}
                 and journal.source != "opening"
                 and not provenance.bases_for(journal.id)
             ):
-                missing.append(journal.id)
+                missing.append(journal_id)
         return _result(self.grader_id, not missing, missing, [])
 
 
@@ -563,6 +589,27 @@ def _recon_is_honest(body: BankReconWorkpaper) -> bool:
         body.ledger_end_minor + sum(item.amount_minor for item in body.outstanding)
     )
     return difference == 0 or bool(body.unresolved)
+
+
+def _episode_provenance_subjects(
+    actions: list[Action], params: ProvenanceCompleteParams
+) -> tuple[set[str], set[str]]:
+    """Resolve provenance obligations from trace mutations and authored targets."""
+
+    journal_ids: set[str] = set()
+    workpaper_ids: set[str] = set()
+    for action in actions:
+        for mutation in action.mutations:
+            if mutation.entity_kind == "Journal":
+                journal_ids.add(mutation.entity_id)
+            elif mutation.entity_kind == "Workpaper":
+                workpaper_ids.add(mutation.entity_id)
+    for reference in params.target_refs:
+        if reference.startswith("jnl-"):
+            journal_ids.add(reference)
+        elif reference.startswith("wpp-"):
+            workpaper_ids.add(reference)
+    return journal_ids, workpaper_ids
 
 
 def _workpaper_refs(paper: Workpaper) -> frozenset[str]:
