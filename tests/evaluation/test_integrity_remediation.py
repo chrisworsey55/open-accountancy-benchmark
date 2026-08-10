@@ -244,18 +244,42 @@ def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -
         relation="derived_from",
     )
     base = [*base_records(), bank, transaction, subject]
-    final = SnapshotView([*base, valid])
-
-    accepted = grade_registered(
-        "provenance_valid",
-        final,
-        final,
-        [successful],
-        ProvenanceGraph.from_world(final),
-        _deliverables(),
-        {"engagement_id": "eng-fictional-a"},
-    )
-    assert accepted.passed
+    aggregate = action(
+        "aggregate_table",
+        input_payload={"source": "bank_transactions"},
+        output_payload={"rows": []},
+    ).model_copy(update={"engagement_id": "eng-fictional-a"})
+    comparison = action(
+        "compare_datasets",
+        input_payload={
+            "left": [{"source_ref": "btx-alpha"}],
+            "right": [{"source_ref": "btx-alpha"}],
+        },
+        output_payload={
+            "matched": [],
+            "left_only": [],
+            "right_only": [],
+            "mismatched": [],
+        },
+    ).model_copy(update={"engagement_id": "eng-fictional-a"})
+    for valid_action in (successful, aggregate, comparison):
+        valid_record = valid.model_copy(
+            update={
+                "id": f"prv-{valid_action.id}",
+                "basis_ref": valid_action.id,
+            }
+        )
+        final = SnapshotView([*base, valid_record])
+        accepted = grade_registered(
+            "provenance_valid",
+            final,
+            final,
+            [valid_action],
+            ProvenanceGraph.from_world(final),
+            _deliverables(),
+            {"engagement_id": "eng-fictional-a"},
+        )
+        assert accepted.passed
 
     failed = successful.model_copy(
         update={"output_payload": {"error": {"code": "DIV_ZERO"}}}
