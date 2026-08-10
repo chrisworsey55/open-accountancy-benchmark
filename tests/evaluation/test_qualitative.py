@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
+
 from mirrorfirm.core.models import JudgeCriterion
-from mirrorfirm.evaluation.qualitative import QualitativeJudge
+from mirrorfirm.evaluation.qualitative import (
+    REFERENCE_VALIDATION_MODEL,
+    QualitativeJudge,
+    ReferenceQualitativeValidator,
+    ReferenceTargetExpectation,
+)
 from mirrorfirm.harness.adapters.base import (
     ModelAdapter,
     ModelResponse,
@@ -100,3 +107,44 @@ def test_qualitative_judge_reuses_the_provider_adapter_boundary() -> None:
     result = judge.judge(criterion, ["Fictional update."], ["fictional/adapter"])
 
     assert result.passed is True
+
+
+def test_reference_validator_is_fail_closed_and_unavailable_to_model_baselines() -> (
+    None
+):
+    """Credential-free reference checking validates targets rather than always passing."""
+
+    criterion = JudgeCriterion(
+        id="reference-tone",
+        prompt="Is the fictional reference clear?",
+        target="outbound_messages",
+        scale="binary",
+        weight=1.0,
+    )
+    validator = ReferenceQualitativeValidator(
+        {
+            criterion.id: ReferenceTargetExpectation(
+                target="outbound_messages",
+                required_text=["receipt", "review"],
+                forbidden_text=["posted"],
+            )
+        }
+    )
+
+    passed = validator.judge(
+        criterion,
+        ["The receipt is proposed for review."],
+        [REFERENCE_VALIDATION_MODEL],
+    )
+    empty = validator.judge(criterion, [], [REFERENCE_VALIDATION_MODEL])
+    contradictory = validator.judge(
+        criterion,
+        ["The receipt was posted for review."],
+        [REFERENCE_VALIDATION_MODEL],
+    )
+
+    assert passed.passed
+    assert not empty.passed
+    assert not contradictory.passed
+    with pytest.raises(ValueError, match="unavailable to model baselines"):
+        validator.judge(criterion, ["receipt for review"], ["fictional/model"])

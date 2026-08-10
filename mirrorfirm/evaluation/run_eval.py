@@ -17,7 +17,10 @@ from mirrorfirm.core.models import (
     Usage,
 )
 from mirrorfirm.evaluation.deterministic import grade_registered
-from mirrorfirm.evaluation.qualitative import QualitativeJudge
+from mirrorfirm.evaluation.qualitative import (
+    QualitativeJudge,
+    ReferenceQualitativeValidator,
+)
 from mirrorfirm.evaluation.safety import detect_critical_failures
 from mirrorfirm.evaluation.scoring import (
     aggregate_results,
@@ -35,10 +38,11 @@ def evaluate_run(
     agent_result: Mapping[str, object],
     *,
     model: str,
-    qualitative_judge: QualitativeJudge | None = None,
+    qualitative_judge: QualitativeJudge | ReferenceQualitativeValidator | None = None,
     judge_models: list[str] | None = None,
     cost_usd: float = 0.0,
     reference_usage: Usage | None = None,
+    reference_validation: bool = False,
 ) -> EvaluationResult:
     """Evaluate one snapshot-backed episode and return the stable E.17 result."""
 
@@ -61,6 +65,11 @@ def evaluate_run(
             )
             for criterion in episode.deterministic_criteria
         ]
+        if isinstance(qualitative_judge, ReferenceQualitativeValidator) and (
+            not reference_validation
+            or model != "reference (scripted) - not model performance"
+        ):
+            raise ValueError("reference validator is unavailable to model baselines")
         qualitative_results, judge_flags = _grade_qualitative(
             episode,
             final,
@@ -199,7 +208,7 @@ def _grade_qualitative(
     episode: EpisodeManifest,
     final: SQLiteWorldView,
     deliverables: Deliverables,
-    qualitative_judge: QualitativeJudge | None,
+    qualitative_judge: QualitativeJudge | ReferenceQualitativeValidator | None,
     judge_models: list[str] | None,
 ) -> tuple[list[CriterionResult], dict[str, bool]]:
     if not episode.qualitative_criteria:
@@ -221,6 +230,7 @@ def _grade_qualitative(
             score=result.score,
             detail=result.detail,
             evidence_refs=result.evidence_refs,
+            requires_review=result.requires_review,
         )
         for result in judged
     ]

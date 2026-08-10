@@ -10,8 +10,10 @@ from mirrorfirm.core.models import (
     DeterministicCriterion,
     EpisodeManifest,
     ExpectedState,
+    JudgeCriterion,
     ReferenceResult,
 )
+from mirrorfirm.evaluation.qualitative import QualitativeJudge
 from mirrorfirm.evaluation.run_eval import (
     evaluate_run,
     write_aggregate_scores,
@@ -166,3 +168,90 @@ def test_evaluator_writes_the_extended_e17_scores_json(tmp_path: Path) -> None:
     aggregate = aggregate_path.read_text(encoding="utf-8")
     assert '"pass_at_1": 1' in aggregate
     assert '"pass_to_3": 1' in aggregate
+
+
+def test_evaluator_serializes_dual_judge_review_disagreement(tmp_path: Path) -> None:
+    """A dual qualitative disagreement remains visible in E.17 output."""
+
+    compiled = compile_world(WORLD, tmp_path / "world.db")
+    with WorldStore.open(compiled.database_path) as store:
+        initial = store.snapshot(
+            tmp_path / "initial.db",
+            snapshot_id="snp-review-initial",
+            episode_run_id="run-review",
+            phase="initial",
+        )
+        final = store.snapshot(
+            tmp_path / "final.db",
+            snapshot_id="snp-review-final",
+            episode_run_id="run-review",
+            phase="final",
+        )
+    episode = _evaluation_episode().model_copy(
+        update={
+            "qualitative_criteria": [
+                JudgeCriterion(
+                    id="tone",
+                    prompt="Is the fictional summary clear?",
+                    target="final_summary",
+                    scale="one_to_five",
+                    weight=1.0,
+                )
+            ]
+        }
+    )
+    judge = QualitativeJudge(
+        {
+            "fictional/a": lambda _prompt: '{"score": 5, "reasoning": "clear"}',
+            "fictional/b": lambda _prompt: '{"score": 2, "reasoning": "unclear"}',
+        }
+    )
+
+    result = evaluate_run(
+        episode,
+        initial,
+        final,
+        {"tool_metrics": {}},
+        model="fictional/model",
+        qualitative_judge=judge,
+        judge_models=["fictional/a", "fictional/b"],
+    )
+
+    qualitative = next(
+        item for item in result.criterion_results if item.criterion_id == "tone"
+    )
+    assert qualitative.requires_review is True
+
+
+def _evaluation_episode() -> EpisodeManifest:
+    return EpisodeManifest(
+        episode_id="epi-eval-fictional",
+        title="Fictional evaluator output",
+        world_id="wld-uk-wyrley-brook",
+        world_version="0.1.0",
+        jurisdiction="uk",
+        engagement_id="eng-brightpath-bookkeeping",
+        agent_person_id="per-agent",
+        instruction="Fictional only.",
+        allowed_tools=["finish_episode"],
+        event_ids=[],
+        budget=Budget(max_steps=4, max_tokens=100, max_world_days=1),
+        deliverables=[],
+        deterministic_criteria=[
+            DeterministicCriterion(
+                id="state",
+                grader_id="expected_state",
+                params={},
+                layer="state",
+            )
+        ],
+        qualitative_criteria=[],
+        critical_failures_active=[],
+        expected_state=ExpectedState(assertions=[]),
+        reference=ReferenceResult(
+            reference_script="tests/evaluation/fake",
+            final_state_digest="0" * 64,
+            note="reference-scripted-run; not model performance",
+        ),
+        commercial_rationale="Fictional regression coverage only.",
+    )

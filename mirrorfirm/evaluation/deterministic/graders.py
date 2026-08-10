@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar, Protocol
+from typing import ClassVar, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from mirrorfirm.core.db import WorldView
 from mirrorfirm.core.models import (
@@ -22,10 +22,12 @@ from mirrorfirm.core.models import (
     PostJournalDescriptor,
     PostToClosedPeriodDescriptor,
     Practice,
+    ProvenanceRecord,
     QueryLogWorkpaper,
     SendMessageDescriptor,
     StateAssertion,
     Task,
+    TaxTag,
     Workpaper,
 )
 from mirrorfirm.evaluation.state import (
@@ -47,9 +49,48 @@ class EmptyParams(GraderParams):
 
 
 class ClassificationMapParams(GraderParams):
-    """Expected account by bank-transaction identifier."""
+    """Complete expected accounting semantics by bank-transaction identifier."""
 
+    expected_classifications: dict[str, ExpectedClassification] = Field(
+        default_factory=dict
+    )
+    # Retained only to decode previously authored manifests.  New episode contracts
+    # use ``expected_classifications`` so the full journal semantics are graded.
     expected_accounts: dict[str, str] = Field(default_factory=dict)
+
+
+class ExpectedClassificationLine(GraderParams):
+    """One non-bank journal line required by a classification expectation."""
+
+    account_id: str
+    direction: Literal["dr", "cr"]
+    amount_minor: int = Field(gt=0)
+    tax: TaxTag | None = None
+    vat_control: bool = False
+
+
+class ExpectedClassification(GraderParams):
+    """The complete derived journal semantics for one classified bank transaction."""
+
+    gross_minor: int = Field(gt=0)
+    net_minor: int = Field(ge=0)
+    vat_minor: int = Field(ge=0)
+    counter_lines: list[ExpectedClassificationLine] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_complete_amounts(self) -> ExpectedClassification:
+        """Require an exact gross = net + VAT and complete counter-line accounting."""
+
+        if self.net_minor + self.vat_minor != self.gross_minor:
+            raise ValueError("gross_minor must equal net_minor plus vat_minor")
+        if sum(line.amount_minor for line in self.counter_lines) != self.gross_minor:
+            raise ValueError("counter_lines must total gross_minor")
+        if (
+            sum(line.amount_minor for line in self.counter_lines if line.vat_control)
+            != self.vat_minor
+        ):
+            raise ValueError("vat_control counter lines must total vat_minor")
+        return self
 
 
 class ExpectedJournal(GraderParams):
@@ -83,6 +124,12 @@ class ProvenanceCompleteParams(GraderParams):
     """Episode outputs that an author explicitly requires to carry provenance."""
 
     target_refs: list[str] = Field(default_factory=list)
+
+
+class ProvenanceValidParams(GraderParams):
+    """Optional episode scope needed to validate derived Action provenance."""
+
+    engagement_id: str | None = None
 
 
 class ExpectedStateParams(GraderParams):
@@ -152,9 +199,15 @@ class ClassificationMapGrader:
         assert isinstance(params, ClassificationMapParams)
         journals = final.list(Journal)
         mismatches: list[str] = []
+        for transaction_id, expected in sorted(params.expected_classifications.items()):
+            mismatch = _classification_mismatch(journals, transaction_id, expected)
+            if mismatch is not None:
+                mismatches.append(f"{transaction_id} {mismatch}")
         for transaction_id, expected_account in sorted(
             params.expected_accounts.items()
         ):
+            if transaction_id in params.expected_classifications:
+                continue
             actual_accounts = {
                 candidate.account_id
                 for journal in journals
@@ -168,7 +221,10 @@ class ClassificationMapGrader:
                     f"{transaction_id} expected {expected_account}, got {sorted(actual_accounts)}"
                 )
         return _result(
-            self.grader_id, not mismatches, mismatches, params.expected_accounts
+            self.grader_id,
+            not mismatches,
+            mismatches,
+            [*params.expected_classifications, *params.expected_accounts],
         )
 
 
@@ -316,7 +372,7 @@ class ProvenanceCompleteGrader:
 @dataclass(frozen=True)
 class ProvenanceValidGrader:
     grader_id: ClassVar[str] = "provenance_valid"
-    Params: ClassVar[type[GraderParams]] = EmptyParams
+    Params: ClassVar[type[GraderParams]] = ProvenanceValidParams
 
     def grade(
         self,
@@ -327,14 +383,19 @@ class ProvenanceValidGrader:
         deliverables: Deliverables,
         params: GraderParams,
     ) -> CriterionResult:
-        del initial, actions, deliverables, params
-        index = ClientScopeIndex.from_world(final)
+        del initial, deliverables
+        assert isinstance(params, ProvenanceValidParams)
+        index = ClientScopeIndex.from_world(final, extra_actions=actions)
+        actions_by_id = {action.id: action for action in actions}
         invalid = [
             record.id
             for record in provenance.records
             if not index.has_reference(record.subject_ref)
             or not index.has_reference(record.basis_ref)
             or _cross_client_reference(index, record.subject_ref, record.basis_ref)
+            or not _valid_derived_action_basis(
+                record, actions_by_id, index, params.engagement_id
+            )
         ]
         return _result(self.grader_id, not invalid, invalid, [])
 
@@ -639,6 +700,104 @@ def _cross_client_reference(index: ClientScopeIndex, left: str, right: str) -> b
         and right_client is not None
         and left_client != right_client
     )
+
+
+def _classification_mismatch(
+    journals: tuple[Journal, ...],
+    transaction_id: str,
+    expected: ExpectedClassification,
+) -> str | None:
+    """Compare one full derived classification journal without account-only shortcuts."""
+
+    matches = [
+        journal
+        for journal in journals
+        if any(line.bank_transaction_id == transaction_id for line in journal.lines)
+    ]
+    if len(matches) != 1:
+        return f"expected exactly one classification journal, found {len(matches)}"
+    journal = matches[0]
+    bank_lines = [
+        line for line in journal.lines if line.bank_transaction_id == transaction_id
+    ]
+    if len(bank_lines) != 1:
+        return f"expected one bank-control line, found {len(bank_lines)}"
+    bank_line = bank_lines[0]
+    if bank_line.amount_minor != expected.gross_minor:
+        return f"gross expected {expected.gross_minor}, got {bank_line.amount_minor}"
+    counter_lines = [line for line in journal.lines if line is not bank_line]
+    if any(line.bank_transaction_id is not None for line in counter_lines):
+        return "contains an additional bank-control line"
+    expected_lines = sorted(
+        (_expected_line_key(line) for line in expected.counter_lines), key=repr
+    )
+    actual_lines = sorted((_journal_line_key(line) for line in counter_lines), key=repr)
+    if actual_lines != expected_lines:
+        return "counter lines, directions, amounts, or tax tags do not match"
+    vat_accounts = {
+        line.account_id for line in expected.counter_lines if line.vat_control
+    }
+    actual_vat = sum(
+        line.amount_minor for line in counter_lines if line.account_id in vat_accounts
+    )
+    actual_net = sum(
+        line.amount_minor
+        for line in counter_lines
+        if line.account_id not in vat_accounts
+    )
+    if actual_net != expected.net_minor or actual_vat != expected.vat_minor:
+        return (
+            f"net/VAT expected {expected.net_minor}/{expected.vat_minor}, got "
+            f"{actual_net}/{actual_vat}"
+        )
+    return None
+
+
+def _expected_line_key(
+    line: ExpectedClassificationLine,
+) -> tuple[str, str, int, tuple[str, str, int] | None]:
+    return (line.account_id, line.direction, line.amount_minor, _tax_key(line.tax))
+
+
+def _journal_line_key(
+    line: JournalLine,
+) -> tuple[str, str, int, tuple[str, str, int] | None]:
+    return (line.account_id, line.direction, line.amount_minor, _tax_key(line.tax))
+
+
+def _tax_key(tax: TaxTag | None) -> tuple[str, str, int] | None:
+    return None if tax is None else (tax.kind, tax.code, tax.rate_bp)
+
+
+def _valid_derived_action_basis(
+    record: ProvenanceRecord,
+    actions_by_id: dict[str, Action],
+    index: ClientScopeIndex,
+    engagement_id: str | None,
+) -> bool:
+    """Accept successful same-scope calculation Actions as ``derived_from`` bases."""
+
+    action = actions_by_id.get(record.basis_ref)
+    if action is None:
+        return not record.basis_ref.startswith("act-")
+    if record.relation != "derived_from":
+        return False
+    if action.tool not in {"calculate", "aggregate_table", "compare_datasets"}:
+        return False
+    if not isinstance(action.output_payload, dict) or "error" in action.output_payload:
+        return False
+    if action.tool == "calculate" and (
+        action.output_payload.get("calculation_action_id") != action.id
+    ):
+        return False
+    action_client = index.client_for(action.id)
+    subject_client = index.client_for(record.subject_ref)
+    if action_client is None or subject_client != action_client:
+        return False
+    if engagement_id is not None and index.engagement_for(action.id) != engagement_id:
+        return False
+    subject_engagement = index.engagement_for(record.subject_ref)
+    return subject_engagement is None or subject_engagement == engagement_id
 
 
 def _assertion_detail(

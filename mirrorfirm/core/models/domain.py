@@ -852,6 +852,9 @@ class Action(VersionedModel):
     output_digest: str
     input_payload: JsonValue
     output_payload: JsonValue
+    # Optional for backwards-compatible replay of v0.1 logs written before scoped
+    # computation provenance was recorded.  Newly recorded Actions always populate it.
+    engagement_id: str | None = None
     world_time_before: UTCAwareDatetime
     world_time_after: UTCAwareDatetime
     mutations: list[Mutation]
@@ -920,6 +923,7 @@ class CriterionResult(VersionedModel):
     score: float
     detail: str
     evidence_refs: list[str]
+    requires_review: bool = False
 
 
 class Usage(VersionedModel):

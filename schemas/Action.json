@@ -50,6 +50,18 @@
       "title": "Actor",
       "type": "string"
     },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "id": {
       "title": "Id",
       "type": "string"

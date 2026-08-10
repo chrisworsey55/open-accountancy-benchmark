@@ -23,6 +23,11 @@
           "title": "Passed",
           "type": "boolean"
         },
+        "requires_review": {
+          "default": false,
+          "title": "Requires Review",
+          "type": "boolean"
+        },
         "schema_version": {
           "const": "0.1",
           "default": "0.1",

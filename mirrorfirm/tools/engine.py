@@ -1726,6 +1726,7 @@ class WorldToolEngine:
             output_digest=logical_state_digest(output_payload),
             input_payload=input_payload,
             output_payload=output_payload,
+            engagement_id=self.engagement.id,
             world_time_before=before or (self.now if at is None else at),
             world_time_after=world_time,
             mutations=mutations,
