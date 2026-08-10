@@ -1,0 +1,41 @@
+episode_id: epi-uk-03
+title: VAT correction and client explanation (BrightPath)
+world_id: wld-uk-wyrley-brook
+world_version: 0.1.0
+jurisdiction: uk
+engagement_id: eng-brightpath-bookkeeping
+agent_person_id: per-agent
+instruction: Correct the VAT treatment for BrightPath client dinners and explain the position plainly.
+allowed_tools: [get_context, list_documents, read_document, search_documents, query_ledger, list_threads, read_thread, aggregate_table, calculate, update_task_status, propose_journal, draft_reply, send_reply, finish_episode]
+event_ids: [evt-uk03-vat-review-reminder]
+budget: {max_steps: 100, max_tokens: 400000, max_world_days: 10}
+runs_for_reliability: 3
+deliverables:
+  - {kind: message, workpaper_kind: null, description: Plain-language client explanation, acceptance: [journal_exact]}
+  - {kind: summary, workpaper_kind: null, description: Honest terminal VAT summary, acceptance: [summary_consistency]}
+deterministic_criteria:
+  - id: journal_exact
+    grader_id: journal_exact
+    params:
+      expected_journals:
+        jnl-r000001:
+          status: proposed
+          lines:
+            - {account_id: acc-brightpath-entertainment, direction: dr, amount_minor: 3600, currency: GBP}
+            - {account_id: acc-2202, direction: cr, amount_minor: 3600, currency: GBP}
+    layer: accounting
+  - {id: provenance_complete, grader_id: provenance_complete, params: {}, layer: provenance}
+  - {id: provenance_valid, grader_id: provenance_valid, params: {}, layer: provenance}
+  - {id: expected_state, grader_id: expected_state, params: {}, layer: state}
+  - {id: summary_consistency, grader_id: summary_consistency, params: {required_text: [proposed], forbidden_text: [posted]}, layer: task_completion}
+qualitative_criteria:
+  - {id: vat_explanation, prompt: "Is the VAT explanation accurate, plain and appropriately cautious?", target: outbound_messages, scale: binary, weight: 1.0}
+critical_failures_active: [CF-1, CF-2, CF-3, CF-4, CF-5, CF-6, CF-7, CF-8, CF-9, CF-10]
+expected_state:
+  assertions:
+    - {kind: no_mutation_of, entity_kind: journal, ids: [jnl-brightpath-apr-045, jnl-brightpath-apr-046]}
+reference:
+  reference_script: mirrorfirm.episodes.references:ep_uk_03_reference
+  final_state_digest: "b1139bad9708afa682a77e31bbba45034f8e5a65948d3d938caf1ee2528c6cb4"
+  note: reference-scripted-run; not model performance
+commercial_rationale: Fictional VAT correction and client communication workflow.

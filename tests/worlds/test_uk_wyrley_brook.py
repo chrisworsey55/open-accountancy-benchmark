@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORLD = ROOT / "worlds" / "uk-wyrley-brook"
 
 
-def test_uk_wyrley_brook_passes_all_available_structural_gates() -> None:
+def test_uk_wyrley_brook_passes_structural_and_wp10_reference_gates() -> None:
     report = validate_world(WORLD)
 
     assert report.passed
@@ -22,8 +22,8 @@ def test_uk_wyrley_brook_passes_all_available_structural_gates() -> None:
         ("invariants", "passed"),
         ("trap_coverage", "passed"),
         ("double_compile_digest", "passed"),
-        ("reference_runs", "not_available"),
-        ("answer_key_completeness", "not_available"),
+        ("reference_runs", "passed"),
+        ("answer_key_completeness", "passed"),
     ]
 
 

@@ -38,6 +38,16 @@ from mirrorfirm.core.models import (
     Workpaper,
     WorldManifest,
 )
+from mirrorfirm.episodes import (
+    EpisodeAuthoringError,
+    answer_key_path,
+    episode_root,
+    load_answer_key,
+    load_episode_manifest,
+    run_reference_episode,
+    validate_answer_key,
+)
+from mirrorfirm.episodes.references import ReferenceScriptError
 
 from .compile import WorldCompileError, compile_world, load_world_fixtures
 from .traps import TrapRegisterError, apply_traps
@@ -141,22 +151,108 @@ def validate_world(world_dir: str | Path) -> WorldValidationResult:
                 "independent compilations have the same logical-state digest",
             )
         )
+        reference_gate, answer_key_gate = _validate_episode_gates(
+            root,
+            fixtures.manifest,
+            compiled.database_path,
+            temporary_root / "reference-results",
+        )
+        gates.extend((reference_gate, answer_key_gate))
+    return WorldValidationResult(root, tuple(gates))
 
-    gates.extend(
-        (
+
+def _validate_episode_gates(
+    world_root: Path,
+    manifest: WorldManifest,
+    compiled_database_path: Path,
+    results_root: Path,
+) -> tuple[GateResult, GateResult]:
+    """Run the WP-10 authored-reference and answer-key validation gates."""
+
+    try:
+        episodes_dir = episode_root(manifest.jurisdiction, root=world_root)
+    except EpisodeAuthoringError:
+        return (
             GateResult(
                 "reference_runs",
                 "not_available",
-                "reference-run gate is introduced in WP-10",
+                "no repository episode catalogue is available for this transient world",
             ),
             GateResult(
                 "answer_key_completeness",
                 "not_available",
-                "answer-key gate is introduced in WP-10",
+                "no repository episode catalogue is available for this transient world",
             ),
         )
+
+    episode_paths = sorted(episodes_dir.glob(f"ep-{manifest.jurisdiction}-*.yaml"))
+    try:
+        authored = [(path, load_episode_manifest(path)) for path in episode_paths]
+    except EpisodeAuthoringError as error:
+        return (
+            GateResult("reference_runs", "failed", str(error)),
+            GateResult("answer_key_completeness", "failed", str(error)),
+        )
+    episodes = [
+        (path, episode)
+        for path, episode in authored
+        if episode.world_id == manifest.world_id
+        and episode.world_version == manifest.world_version
+    ]
+    if not episodes:
+        detail = (
+            f"no {manifest.jurisdiction} episode manifests target {manifest.world_id!r}"
+        )
+        return (
+            GateResult("reference_runs", "failed", detail),
+            GateResult("answer_key_completeness", "failed", detail),
+        )
+
+    try:
+        for path, episode in episodes:
+            del path
+            reference = run_reference_episode(
+                episode,
+                compiled_database_path,
+                world_root=world_root,
+                results_root=results_root,
+                run_id=f"run-validation-{episode.episode_id}",
+            )
+            if (
+                reference.evaluation.overall != 1.0
+                or reference.evaluation.critical_failures
+                or not reference.evaluation.all_pass
+            ):
+                raise ReferenceScriptError(
+                    f"reference {episode.episode_id!r} did not score 100% with zero critical failures"
+                )
+    except (OSError, ReferenceScriptError, ValueError) as error:
+        return (
+            GateResult("reference_runs", "failed", str(error)),
+            GateResult(
+                "answer_key_completeness",
+                "not_available",
+                "reference-run gate did not pass",
+            ),
+        )
+
+    reference_gate = GateResult(
+        "reference_runs",
+        "passed",
+        f"{len(episodes)} references score 100% with zero critical failures",
     )
-    return WorldValidationResult(root, tuple(gates))
+    try:
+        for path, episode in episodes:
+            validate_answer_key(episode, load_answer_key(answer_key_path(path)))
+    except EpisodeAuthoringError as error:
+        return reference_gate, GateResult(
+            "answer_key_completeness", "failed", str(error)
+        )
+    return reference_gate, GateResult(
+        "answer_key_completeness",
+        "passed",
+        f"{len(episodes)} answer keys exactly match their typed manifests",
+    )
 
 
 def validate_structural_invariants(

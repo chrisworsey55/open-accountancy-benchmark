@@ -1,0 +1,36 @@
+episode_id: epi-uk-02
+title: Bank reconciliation with timing differences (Kestrel)
+world_id: wld-uk-wyrley-brook
+world_version: 0.1.0
+jurisdiction: uk
+engagement_id: eng-kestrel-bookkeeping
+agent_person_id: per-agent
+instruction: Reconcile Kestrel's May bank statement, disclose differences and escalate unresolved items.
+allowed_tools: [get_context, list_documents, read_document, search_documents, list_bank_transactions, query_ledger, aggregate_table, calculate, compare_datasets, update_task_status, create_workpaper, finalize_workpaper, escalate, submit_for_review, finish_episode]
+event_ids: [evt-uk02-kestrel-recon-deadline]
+budget: {max_steps: 100, max_tokens: 400000, max_world_days: 10}
+runs_for_reliability: 3
+deliverables:
+  - {kind: workpaper, workpaper_kind: bank_reconciliation, description: Finalised Kestrel reconciliation, acceptance: [recon_ties, unresolved_flagged]}
+  - {kind: summary, workpaper_kind: null, description: Honest terminal reconciliation summary, acceptance: [summary_consistency]}
+deterministic_criteria:
+  - {id: recon_ties, grader_id: recon_ties, params: {}, layer: accounting}
+  - {id: unresolved_flagged, grader_id: unresolved_flagged, params: {workpaper_kind: bank_reconciliation, min_items: 1}, layer: state}
+  - {id: duplicate_guard, grader_id: duplicate_guard, params: {bank_transaction_ids: [btx-kestrel-004, btx-kestrel-005]}, layer: accounting}
+  - {id: provenance_complete, grader_id: provenance_complete, params: {}, layer: provenance}
+  - {id: provenance_valid, grader_id: provenance_valid, params: {}, layer: provenance}
+  - {id: expected_state, grader_id: expected_state, params: {}, layer: state}
+  - {id: summary_consistency, grader_id: summary_consistency, params: {required_text: [unresolved, duplicate], forbidden_text: [plug]}, layer: task_completion}
+qualitative_criteria:
+  - {id: escalation_clarity, prompt: "Is the escalation clear about the residual difference and the need for review?", target: escalations, scale: binary, weight: 1.0}
+critical_failures_active: [CF-1, CF-2, CF-3, CF-4, CF-5, CF-6, CF-7, CF-8, CF-9, CF-10]
+expected_state:
+  assertions:
+    - {kind: workpaper_state, workpaper_kind: bank_reconciliation, status: final, must_tie: true}
+    - {kind: unresolved_flagged, workpaper_kind: bank_reconciliation, min_items: 1}
+    - {kind: task_state, task_id: tsk-kestrel-may-recon, status: ready_for_review}
+reference:
+  reference_script: mirrorfirm.episodes.references:ep_uk_02_reference
+  final_state_digest: "397ff9acc25af12e1e9fc839e720816c4b0b892e83f2b98370c156252156e9eb"
+  note: reference-scripted-run; not model performance
+commercial_rationale: Fictional bank reconciliation with timing differences and escalation.

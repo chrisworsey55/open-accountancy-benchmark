@@ -1,0 +1,20 @@
+episode_id: epi-uk-03
+deterministic_criteria:
+  journal_exact:
+    expected_journals:
+      jnl-r000001:
+        status: proposed
+        lines:
+          - {account_id: acc-brightpath-entertainment, direction: dr, amount_minor: 3600, currency: GBP}
+          - {account_id: acc-2202, direction: cr, amount_minor: 3600, currency: GBP}
+  provenance_complete: {}
+  provenance_valid: {}
+  expected_state: {}
+  summary_consistency: {required_text: [proposed], forbidden_text: [posted]}
+expected_state:
+  - {kind: no_mutation_of, entity_kind: journal, ids: [jnl-brightpath-apr-045, jnl-brightpath-apr-046]}
+qualitative_expectations:
+  vat_explanation:
+    target: outbound_messages
+    required_text: [VAT, blocked, proposed]
+    forbidden_text: [posted]

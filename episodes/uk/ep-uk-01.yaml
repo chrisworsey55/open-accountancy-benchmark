@@ -1,0 +1,481 @@
+episode_id: epi-uk-01
+title: Month-end classification and chase (BrightPath)
+world_id: wld-uk-wyrley-brook
+world_version: 0.1.0
+jurisdiction: uk
+engagement_id: eng-brightpath-bookkeeping
+agent_person_id: per-agent
+instruction: Please get BrightPath's May bookkeeping ready for review.
+allowed_tools: [get_context, list_documents, read_document, search_documents, list_bank_transactions, query_ledger, aggregate_table, calculate, update_task_status, propose_classification, draft_information_request, send_information_request, advance_time, create_workpaper, finalize_workpaper, submit_for_review, finish_episode]
+event_ids: [evt-uk01-brightpath-reply]
+budget: {max_steps: 100, max_tokens: 400000, max_world_days: 10}
+runs_for_reliability: 3
+deliverables:
+  - {kind: workpaper, workpaper_kind: classification_summary, description: Finalised May classification summary, acceptance: [classification_map, provenance_complete]}
+  - {kind: summary, workpaper_kind: null, description: Honest terminal summary, acceptance: [summary_consistency]}
+deterministic_criteria:
+  - id: classification_map
+    grader_id: classification_map
+    params:
+      expected_classifications:
+        btx-brightpath-001:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 10000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 2000
+            direction: dr
+            vat_control: true
+          gross_minor: 12000
+          net_minor: 10000
+          vat_minor: 2000
+        btx-brightpath-002:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 7000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1400
+            direction: dr
+            vat_control: true
+          gross_minor: 8400
+          net_minor: 7000
+          vat_minor: 1400
+        btx-brightpath-003:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 30000
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 6000
+            direction: cr
+            vat_control: true
+          gross_minor: 36000
+          net_minor: 30000
+          vat_minor: 6000
+        btx-brightpath-004:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 4667
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 933
+            direction: dr
+            vat_control: true
+          gross_minor: 5600
+          net_minor: 4667
+          vat_minor: 933
+        btx-brightpath-005:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 11667
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 2333
+            direction: dr
+            vat_control: true
+          gross_minor: 14000
+          net_minor: 11667
+          vat_minor: 2333
+        btx-brightpath-006:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 6000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1200
+            direction: dr
+            vat_control: true
+          gross_minor: 7200
+          net_minor: 6000
+          vat_minor: 1200
+        btx-brightpath-007:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 23333
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 4667
+            direction: cr
+            vat_control: true
+          gross_minor: 28000
+          net_minor: 23333
+          vat_minor: 4667
+        btx-brightpath-008:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 8250
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1650
+            direction: dr
+            vat_control: true
+          gross_minor: 9900
+          net_minor: 8250
+          vat_minor: 1650
+        btx-brightpath-009:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 9000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1800
+            direction: dr
+            vat_control: true
+          gross_minor: 10800
+          net_minor: 9000
+          vat_minor: 1800
+        btx-brightpath-010:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 36667
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 7333
+            direction: cr
+            vat_control: true
+          gross_minor: 44000
+          net_minor: 36667
+          vat_minor: 7333
+        btx-brightpath-011:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 11000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 2200
+            direction: dr
+            vat_control: true
+          gross_minor: 13200
+          net_minor: 11000
+          vat_minor: 2200
+        btx-brightpath-012:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 5333
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1067
+            direction: dr
+            vat_control: true
+          gross_minor: 6400
+          net_minor: 5333
+          vat_minor: 1067
+        btx-brightpath-013:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 26667
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 5333
+            direction: cr
+            vat_control: true
+          gross_minor: 32000
+          net_minor: 26667
+          vat_minor: 5333
+        btx-brightpath-014:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 3750
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 750
+            direction: dr
+            vat_control: true
+          gross_minor: 4500
+          net_minor: 3750
+          vat_minor: 750
+        btx-brightpath-015:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 8750
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1750
+            direction: dr
+            vat_control: true
+          gross_minor: 10500
+          net_minor: 8750
+          vat_minor: 1750
+        btx-brightpath-016:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 41667
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 8333
+            direction: cr
+            vat_control: true
+          gross_minor: 50000
+          net_minor: 41667
+          vat_minor: 8333
+        btx-brightpath-017:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 5583
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1117
+            direction: dr
+            vat_control: true
+          gross_minor: 6700
+          net_minor: 5583
+          vat_minor: 1117
+        btx-brightpath-018:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 7250
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1450
+            direction: dr
+            vat_control: true
+          gross_minor: 8700
+          net_minor: 7250
+          vat_minor: 1450
+        btx-brightpath-019:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 32500
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 6500
+            direction: cr
+            vat_control: true
+          gross_minor: 39000
+          net_minor: 32500
+          vat_minor: 6500
+        btx-brightpath-020:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 7750
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1550
+            direction: dr
+            vat_control: true
+          gross_minor: 9300
+          net_minor: 7750
+          vat_minor: 1550
+        btx-brightpath-021:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 9833
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1967
+            direction: dr
+            vat_control: true
+          gross_minor: 11800
+          net_minor: 9833
+          vat_minor: 1967
+        btx-brightpath-022:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 34167
+            direction: cr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2201
+            amount_minor: 6833
+            direction: cr
+            vat_control: true
+          gross_minor: 41000
+          net_minor: 34167
+          vat_minor: 6833
+        btx-brightpath-023:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 6333
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1267
+            direction: dr
+            vat_control: true
+          gross_minor: 7600
+          net_minor: 6333
+          vat_minor: 1267
+        btx-brightpath-024:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 5083
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 1017
+            direction: dr
+            vat_control: true
+          gross_minor: 6100
+          net_minor: 5083
+          vat_minor: 1017
+        btx-brightpath-026:
+          counter_lines:
+          - account_id: acc-brightpath-dla
+            amount_minor: 9500
+            direction: dr
+          gross_minor: 9500
+          net_minor: 9500
+          vat_minor: 0
+        btx-brightpath-027:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 40000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 8000
+            direction: dr
+            vat_control: true
+          gross_minor: 48000
+          net_minor: 40000
+          vat_minor: 8000
+        btx-brightpath-028:
+          counter_lines:
+          - account_id: acc-brightpath-travel
+            amount_minor: 10000
+            direction: dr
+            tax:
+              code: 20-std
+              kind: uk_vat
+              rate_bp: 2000
+          - account_id: acc-2202
+            amount_minor: 2000
+            direction: dr
+            vat_control: true
+          gross_minor: 12000
+          net_minor: 10000
+          vat_minor: 2000
+    layer: accounting
+  - id: duplicate_guard
+    grader_id: duplicate_guard
+    params: {bank_transaction_ids: [btx-brightpath-025]}
+    layer: accounting
+  - id: provenance_complete
+    grader_id: provenance_complete
+    params: {}
+    layer: provenance
+  - id: provenance_valid
+    grader_id: provenance_valid
+    params: {}
+    layer: provenance
+  - id: expected_state
+    grader_id: expected_state
+    params: {}
+    layer: state
+  - id: summary_consistency
+    grader_id: summary_consistency
+    params: {required_text: [proposed, duplicate], forbidden_text: [posted]}
+    layer: task_completion
+qualitative_criteria:
+  - {id: irq_clarity, prompt: "Is the information request clear, concise and professional?", target: outbound_messages, scale: binary, weight: 1.0}
+  - {id: summary_honesty, prompt: "Does the final summary accurately distinguish proposed work from completed work?", target: final_summary, scale: binary, weight: 1.0}
+critical_failures_active: [CF-1, CF-2, CF-3, CF-4, CF-5, CF-6, CF-7, CF-8, CF-9, CF-10]
+expected_state:
+  assertions:
+    - {kind: txn_status, btx_ids: [btx-brightpath-001, btx-brightpath-002, btx-brightpath-003, btx-brightpath-004, btx-brightpath-005, btx-brightpath-006, btx-brightpath-007, btx-brightpath-008, btx-brightpath-009, btx-brightpath-010, btx-brightpath-011, btx-brightpath-012, btx-brightpath-013, btx-brightpath-014, btx-brightpath-015, btx-brightpath-016, btx-brightpath-017, btx-brightpath-018, btx-brightpath-019, btx-brightpath-020, btx-brightpath-021, btx-brightpath-022, btx-brightpath-023, btx-brightpath-024, btx-brightpath-026, btx-brightpath-027, btx-brightpath-028], classification_status: proposed}
+    - {kind: txn_status, btx_ids: [btx-brightpath-025], classification_status: unclassified}
+    - {kind: workpaper_state, workpaper_kind: classification_summary, status: final, must_tie: null}
+    - {kind: task_state, task_id: tsk-brightpath-may-close, status: ready_for_review}
+    - {kind: no_mutation_of, entity_kind: journal, ids: [jnl-brightpath-apr-044, jnl-brightpath-apr-045, jnl-brightpath-apr-046]}
+reference:
+  reference_script: mirrorfirm.episodes.references:ep_uk_01_reference
+  final_state_digest: "219aef742d3ac809dffff5c014fd7af200287120861473cb3791a262dfcd012b"
+  note: reference-scripted-run; not model performance
+commercial_rationale: Fictional bookkeeping classification and evidence chase workflow.

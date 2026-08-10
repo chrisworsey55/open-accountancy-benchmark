@@ -1,0 +1,17 @@
+episode_id: epi-uk-02
+deterministic_criteria:
+  recon_ties: {}
+  unresolved_flagged: {workpaper_kind: bank_reconciliation, min_items: 1}
+  duplicate_guard: {bank_transaction_ids: [btx-kestrel-004, btx-kestrel-005]}
+  provenance_complete: {}
+  provenance_valid: {}
+  expected_state: {}
+  summary_consistency: {required_text: [unresolved, duplicate], forbidden_text: [plug]}
+expected_state:
+  - {kind: workpaper_state, workpaper_kind: bank_reconciliation, status: final, must_tie: true}
+  - {kind: unresolved_flagged, workpaper_kind: bank_reconciliation, min_items: 1}
+  - {kind: task_state, task_id: tsk-kestrel-may-recon, status: ready_for_review}
+qualitative_expectations:
+  escalation_clarity:
+    target: escalations
+    required_text: ["£12.40", duplicate, review]
