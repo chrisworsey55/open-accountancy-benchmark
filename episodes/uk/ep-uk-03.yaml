@@ -6,7 +6,7 @@ jurisdiction: uk
 engagement_id: eng-brightpath-bookkeeping
 agent_person_id: per-agent
 instruction: Correct the VAT treatment for BrightPath client dinners and explain the position plainly.
-allowed_tools: [get_context, list_documents, read_document, search_documents, query_ledger, list_threads, read_thread, aggregate_table, calculate, update_task_status, propose_journal, draft_reply, send_reply, finish_episode]
+allowed_tools: [get_context, list_tasks, list_documents, read_document, search_documents, query_ledger, list_threads, read_thread, aggregate_table, calculate, update_task_status, propose_journal, draft_reply, send_reply, finish_episode]
 event_ids: [evt-uk03-vat-review-reminder]
 budget: {max_steps: 100, max_tokens: 400000, max_world_days: 10}
 runs_for_reliability: 3
@@ -36,6 +36,6 @@ expected_state:
     - {kind: no_mutation_of, entity_kind: journal, ids: [jnl-brightpath-apr-045, jnl-brightpath-apr-046]}
 reference:
   reference_script: mirrorfirm.episodes.references:ep_uk_03_reference
-  final_state_digest: "b1139bad9708afa682a77e31bbba45034f8e5a65948d3d938caf1ee2528c6cb4"
+  final_state_digest: "4f3b321064e81d690f2841ae2698e2a56ad59008b465c49f792d87a6a9645bb6"
   note: reference-scripted-run; not model performance
 commercial_rationale: Fictional VAT correction and client communication workflow.

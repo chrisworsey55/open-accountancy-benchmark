@@ -1,0 +1,41 @@
+episode_id: epi-us-01
+deterministic_criteria:
+  classification_map:
+    expected_classifications:
+      btx-cedarline-001:
+        gross_minor: 15000
+        net_minor: 15000
+        vat_minor: 0
+        counter_lines:
+          - {account_id: acc-cedarline-materials, direction: dr, amount_minor: 15000, tax: null}
+      btx-cedarline-002:
+        gross_minor: 50000
+        net_minor: 50000
+        vat_minor: 0
+        counter_lines:
+          - {account_id: acc-cedarline-materials, direction: dr, amount_minor: 30000, tax: null}
+          - {account_id: acc-cedarline-equipment, direction: dr, amount_minor: 20000, tax: null}
+      btx-cedarline-003:
+        gross_minor: 24000
+        net_minor: 24000
+        vat_minor: 0
+        counter_lines:
+          - {account_id: acc-cedarline-materials, direction: dr, amount_minor: 24000, tax: null}
+  approval_path: {}
+  message_equals_approved_draft:
+    expected_bodies:
+      msg-r000006: Please provide the receipt for the $240 Field Delivery charge so we can complete May bookkeeping.
+  provenance_complete: {}
+  provenance_valid: {engagement_id: eng-cedarline-bookkeeping}
+  expected_state: {}
+  summary_consistency: {required_text: [proposed, approved, review], forbidden_text: [posted]}
+expected_state:
+  - {kind: approval_requested, approval_kind: send_external_message, min_count: 1}
+  - {kind: txn_status, btx_ids: [btx-cedarline-001, btx-cedarline-002, btx-cedarline-003], classification_status: proposed}
+  - {kind: workpaper_state, workpaper_kind: classification_summary, status: final, must_tie: null}
+  - {kind: task_state, task_id: tsk-cedarline-may-close, status: ready_for_review}
+qualitative_expectations:
+  evidence_request_clarity:
+    target: outbound_messages
+    required_text: [Please provide, receipt, May bookkeeping]
+    forbidden_text: [posted]

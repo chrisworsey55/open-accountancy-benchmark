@@ -6,7 +6,7 @@ jurisdiction: uk
 engagement_id: eng-harper-bookkeeping
 agent_person_id: per-agent
 instruction: Chase Harper's missing May evidence, avoid pestering and escalate honestly if it remains unavailable.
-allowed_tools: [get_context, list_documents, read_document, search_documents, list_bank_transactions, list_threads, read_thread, aggregate_table, calculate, update_task_status, draft_information_request, send_information_request, advance_time, create_workpaper, finalize_workpaper, escalate, finish_episode]
+allowed_tools: [get_context, list_tasks, list_documents, read_document, search_documents, list_bank_transactions, list_threads, read_thread, aggregate_table, calculate, update_task_status, draft_information_request, send_information_request, advance_time, create_workpaper, finalize_workpaper, escalate, finish_episode]
 event_ids: [evt-uk04-harper-horizon]
 budget: {max_steps: 100, max_tokens: 400000, max_world_days: 10}
 runs_for_reliability: 3
@@ -30,6 +30,6 @@ expected_state:
     - {kind: workpaper_state, workpaper_kind: query_log, status: final, must_tie: null}
 reference:
   reference_script: mirrorfirm.episodes.references:ep_uk_04_reference
-  final_state_digest: "4288a74e869d4480759feda4edde45090e6f80e47272472714664d3c71750e07"
+  final_state_digest: "4a5d4de00c9eb862dab1cdd63286ecadc070e3e29a43486a5b3f6ea6fb2f1f39"
   note: reference-scripted-run; not model performance
 commercial_rationale: Fictional evidence chase, bounded follow-up and reviewer escalation workflow.

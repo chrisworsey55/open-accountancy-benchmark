@@ -134,6 +134,7 @@ class ClientScopeIndex:
         client_by_bank = {
             bank.id: client_by_entity.get(bank.entity_id) for bank in banks.values()
         }
+        engagement_by_bank = {bank.id: bank.engagement_id for bank in banks.values()}
         reference_clients: dict[str, str] = {}
         reference_engagements: dict[str, str] = {}
         all_record_ids: set[str] = set()
@@ -159,21 +160,26 @@ class ClientScopeIndex:
         for period_id, client_id in client_by_period.items():
             add(period_id, client_id)
         for bank_id, client_id in client_by_bank.items():
-            add(bank_id, client_id)
+            add(bank_id, client_id, engagement_by_bank.get(bank_id))
         for transaction in world.list(BankTransaction):
-            add(transaction.id, client_by_bank.get(transaction.bank_account_id))
+            add(
+                transaction.id,
+                client_by_bank.get(transaction.bank_account_id),
+                engagement_by_bank.get(transaction.bank_account_id),
+            )
         for document in world.list(Document):
-            add(document.id, document.client_id)
+            add(document.id, document.client_id, document.engagement_id)
         for thread in threads.values():
-            add(thread.id, thread.client_id)
+            add(thread.id, thread.client_id, thread.engagement_id)
         for message in world.list(Message):
             message_thread = threads.get(message.thread_id)
             add(
                 message.id,
                 message_thread.client_id if message_thread is not None else None,
+                message_thread.engagement_id if message_thread is not None else None,
             )
         for request in world.list(InformationRequest):
-            add(request.id, request.client_id)
+            add(request.id, request.client_id, request.engagement_id)
         for task in world.list(Task):
             task_engagement = engagements.get(task.engagement_id)
             add(
@@ -191,7 +197,11 @@ class ClientScopeIndex:
                 workpaper.engagement_id,
             )
         for journal in world.list(Journal):
-            add(journal.id, client_by_entity.get(journal.entity_id))
+            add(
+                journal.id,
+                client_by_entity.get(journal.entity_id),
+                journal.engagement_id,
+            )
         for note in world.list(ReviewNote):
             note_engagement = engagements.get(note.engagement_id)
             add(
@@ -204,7 +214,8 @@ class ClientScopeIndex:
             add(
                 approval.id,
                 client_id,
-                _approval_engagement_id(approval, reference_engagements),
+                approval.engagement_id
+                or _approval_engagement_id(approval, reference_engagements),
             )
 
         provenance_records = world.list(ProvenanceRecord)
@@ -262,7 +273,8 @@ class ClientScopeIndex:
                 add(
                     approval.id,
                     _approval_client_id(approval, reference_clients),
-                    _approval_engagement_id(approval, reference_engagements),
+                    approval.engagement_id
+                    or _approval_engagement_id(approval, reference_engagements),
                 )
 
         protected_values: dict[str, set[str]] = {}
@@ -423,6 +435,8 @@ _NONPROTECTED_PAYLOAD_KEYS = frozenset(
     {
         "schema_version",
         "status",
+        "classification_status",
+        "reconciliation_status",
         "source",
         "kind",
         "currency",

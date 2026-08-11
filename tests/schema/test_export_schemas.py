@@ -9,10 +9,16 @@ from mirrorfirm.core.models import (
     MODEL_TYPES,
     Action,
     Approval,
+    BankAccount,
+    Document,
+    Event,
     EventPayload,
+    InformationRequest,
+    Journal,
     ReviewNote,
     StateAssertion,
     TaxRegistration,
+    Thread,
     VersionedModel,
     Workpaper,
     WorkpaperBody,
@@ -77,6 +83,17 @@ def test_corrected_audit_and_workflow_fields_are_in_exported_schemas() -> None:
         "rejected",
         "expired",
     ]
+    assert "approved_draft_digest" in approval_schema["properties"]
+    for model in (
+        Approval,
+        BankAccount,
+        Document,
+        Event,
+        InformationRequest,
+        Journal,
+        Thread,
+    ):
+        assert "engagement_id" in model.model_json_schema()["properties"]
     assert "body" in workpaper_schema["properties"]
     assert {"addressed_by", "addressed_world_time"} <= review_note_schema[
         "properties"

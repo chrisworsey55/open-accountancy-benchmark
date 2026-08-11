@@ -50,6 +50,7 @@ from mirrorfirm.episodes import (
 from mirrorfirm.episodes.references import ReferenceScriptError
 
 from .compile import WorldCompileError, compile_world, load_world_fixtures
+from .ownership import ownership_violations
 from .traps import TrapRegisterError, apply_traps
 
 GateStatus = Literal["passed", "failed", "not_available"]
@@ -337,6 +338,33 @@ def validate_structural_invariants(
         messages,
         information_requests,
         events,
+    )
+    structural_records: tuple[VersionedModel, ...] = (
+        *practices,
+        *people,
+        *clients,
+        *entities,
+        *engagements,
+        *periods,
+        *accounts,
+        *journals,
+        *bank_accounts,
+        *bank_transactions,
+        *documents,
+        *threads,
+        *messages,
+        *information_requests,
+        *tasks,
+        *workpapers,
+        *review_notes,
+        *approvals,
+        *events,
+        *actions,
+        *provenance,
+    )
+    violations.extend(
+        InvariantViolation("I-7", detail)
+        for detail in ownership_violations(structural_records)
     )
     _check_time_monotonicity(violations, actions, events, manifest.start_world_time)
     return tuple(violations)

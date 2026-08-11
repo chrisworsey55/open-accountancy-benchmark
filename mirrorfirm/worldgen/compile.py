@@ -28,6 +28,7 @@ from mirrorfirm.core.models import (
 )
 from mirrorfirm.jurisdictions import get_pack
 
+from .ownership import ownership_violations
 from .traps import Trap, TrapRegisterError, load_trap_register
 
 _MODEL_BY_NAME: Final[dict[str, type[VersionedModel]]] = {
@@ -130,6 +131,11 @@ def compile_world(
         else fixtures.root / "world.db"
     )
     _validate_pack_data(fixtures)
+    ownership_errors = ownership_violations(fixtures.records)
+    if ownership_errors:
+        raise WorldCompileError(
+            "invalid engagement ownership: " + "; ".join(ownership_errors)
+        )
 
     try:
         with WorldStore.create(database_path) as store:

@@ -50,6 +50,21 @@ CurrencyCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 
+class ReferenceField:
+    """Pydantic metadata marking a value as an identifier-bearing relationship.
+
+    The marker deliberately has no JSON-schema rendering effect.  It lets internal
+    contract consumers distinguish a relationship from otherwise free-form text
+    without changing the stable public field shape.
+    """
+
+
+ReferenceString = Annotated[str, ReferenceField()]
+ReferenceList = Annotated[list[str], ReferenceField()]
+OptionalReferenceString = Annotated[str | None, ReferenceField()]
+OptionalReferenceList = Annotated[list[str] | None, ReferenceField()]
+
+
 def _validate_utc(value: datetime) -> datetime:
     """Require stored datetimes to be timezone-aware UTC values."""
 
@@ -272,6 +287,9 @@ class Journal(VersionedModel):
     lines: list[JournalLine] = Field(min_length=2)
     proposed_by: str | None
     approval_id: str | None
+    # A journal is owned by one bookkeeping engagement once it is authored.  Legacy
+    # fixture journals can remain unassigned until a client has multiple engagements.
+    engagement_id: str | None = None
 
     @model_validator(mode="after")
     def validate_balanced(self) -> Journal:
@@ -304,6 +322,7 @@ class BankAccount(VersionedModel):
     name: str
     ledger_account_id: str
     currency: CurrencyCode
+    engagement_id: str | None = None
 
 
 class BankTransaction(VersionedModel):
@@ -339,6 +358,7 @@ class Document(VersionedModel):
     client_id: str | None
     source: Literal["fixture", "client_response"]
     received_world_time: UTCAwareDatetime
+    engagement_id: str | None = None
 
 
 class Thread(VersionedModel):
@@ -348,6 +368,7 @@ class Thread(VersionedModel):
     client_id: str
     subject: str
     message_ids: list[str]
+    engagement_id: str | None = None
 
 
 class Message(VersionedModel):
@@ -360,7 +381,7 @@ class Message(VersionedModel):
     status: Literal["draft", "sent"]
     world_time: UTCAwareDatetime | None
     body: str
-    attachments: list[str]
+    attachments: ReferenceList
     direction: Literal["inbound", "outbound"]
 
     @model_validator(mode="after")
@@ -376,7 +397,7 @@ class IrqItem(VersionedModel):
     """One requested item in an information request."""
 
     description: str
-    refs: list[str]
+    refs: ReferenceList
 
 
 class InformationRequest(VersionedModel):
@@ -387,6 +408,7 @@ class InformationRequest(VersionedModel):
     thread_id: str | None
     items: list[IrqItem]
     status: Literal["draft", "sent", "responded_partial", "responded", "closed"]
+    engagement_id: str | None = None
 
 
 class Task(VersionedModel):
@@ -399,7 +421,7 @@ class Task(VersionedModel):
     description: str
     due: date
     status: Literal["open", "in_progress", "blocked", "ready_for_review", "done"]
-    blocked_on: str | None = None
+    blocked_on: OptionalReferenceString = None
 
     @model_validator(mode="after")
     def validate_blocked_reference(self) -> Task:
@@ -506,6 +528,9 @@ class Event(VersionedModel):
     """A scheduled world event."""
 
     id: str
+    # Fixtures written before engagement scoping may omit this field, but compiled
+    # worlds must validate an explicit owner before events are executable.
+    engagement_id: str | None = None
     trigger: EventTrigger
     payload: EventPayload
     fired: bool = False
@@ -830,6 +855,10 @@ class Approval(VersionedModel):
     rationale: str
     provenance_refs: list[str]
     status: Literal["requested", "granted", "rejected", "expired"]
+    # Send approvals bind a canonical digest of every message field which can affect
+    # delivery.  Non-message approvals retain ``None`` for this optional field.
+    approved_draft_digest: Sha256 | None = None
+    engagement_id: str | None = None
 
 
 class Mutation(VersionedModel):

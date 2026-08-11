@@ -1,0 +1,40 @@
+episode_id: epi-us-02
+deterministic_criteria:
+  journal_exact:
+    expected_journals:
+      jnl-r000001:
+        status: proposed
+        date: "2026-05-19"
+        entity_id: ent-marlowe
+        source: proposal
+        memo: Proposed NSF reversal to re-establish Alder receivable
+        provenance_refs: [doc-marlowe-nsf-notice]
+        lines:
+          - {account_id: acc-marlowe-ar, direction: dr, amount_minor: 100000, currency: USD, bank_transaction_id: null, tax: null}
+          - {account_id: acc-marlowe-bank, direction: cr, amount_minor: 100000, currency: USD, bank_transaction_id: null, tax: null}
+    forbid_additional_episode_journals: true
+  recon_ties:
+    expected_reconciliations:
+      - bank_account_id: bnk-marlowe
+        period_id: prd-marlowe-may
+        statement_end_minor: 120000
+        ledger_end_minor: 113000
+        outstanding:
+          - ref: Deposit MD-DIT-221
+            amount_minor: 7000
+            reason: Orchid Gallery deposit remains in transit at statement cutoff.
+            provenance_refs: [doc-marlowe-deposit-slip]
+        unresolved: []
+    expected_transaction_statuses:
+      btx-marlowe-001: unmatched
+      btx-marlowe-002: unmatched
+      btx-marlowe-003: unmatched
+    forbid_additional_reconciliations: true
+  provenance_complete: {}
+  provenance_valid: {engagement_id: eng-marlowe-bookkeeping}
+  expected_state: {}
+  summary_consistency: {required_text: [NSF, deposit, proposed], forbidden_text: [net]}
+expected_state:
+  - {kind: workpaper_state, workpaper_kind: bank_reconciliation, status: final, must_tie: true}
+  - {kind: task_state, task_id: tsk-marlowe-may-recon, status: ready_for_review}
+qualitative_expectations: {}

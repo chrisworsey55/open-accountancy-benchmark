@@ -15,9 +15,12 @@ from pydantic import (
 )
 
 from mirrorfirm.core.models import (
+    Account,
+    AccountingPeriod,
     Approval,
     ApprovalActionDescriptor,
     ApprovalKind,
+    BankAccount,
     BankTransaction,
     Client,
     Document,
@@ -27,8 +30,11 @@ from mirrorfirm.core.models import (
     Journal,
     JournalLine,
     Message,
+    OptionalReferenceList,
+    OptionalReferenceString,
     Person,
     Practice,
+    ReferenceList,
     ReviewNote,
     Role,
     StateSnapshot,
@@ -188,20 +194,20 @@ class DraftInformationRequestInput(ToolInput):
     client_id: str
     items: list[IrqItem] = Field(min_length=1)
     body: str = Field(min_length=1)
-    attachments: list[str] = Field(default_factory=list)
+    attachments: ReferenceList = Field(default_factory=list)
 
 
 class UpdateDraftInput(ToolInput):
     message_id: str
     body: str | None = None
     items: list[IrqItem] | None = None
-    attachments: list[str] | None = None
+    attachments: OptionalReferenceList = None
 
 
 class DraftReplyInput(ToolInput):
     thread_id: str
     body: str = Field(min_length=1)
-    attachments: list[str] = Field(default_factory=list)
+    attachments: ReferenceList = Field(default_factory=list)
 
 
 class CreateWorkpaperInput(ToolInput):
@@ -219,7 +225,7 @@ class UpdateWorkpaperInput(ToolInput):
 class UpdateTaskStatusInput(ToolInput):
     task_id: str
     status: Literal["open", "in_progress", "blocked", "ready_for_review", "done"]
-    blocked_on: str | None = None
+    blocked_on: OptionalReferenceString = None
 
 
 class SubmitForReviewInput(ToolInput):
@@ -273,10 +279,15 @@ class ToolOutput(BaseModel):
 
 
 class GetContextOutput(ToolOutput):
+    """The complete non-sensitive reference map for the active engagement."""
+
     practice: Practice
     engagement: Engagement
     client: Client
     actor: Person
+    periods: list[AccountingPeriod]
+    accounts: list[Account]
+    bank_accounts: list[BankAccount]
 
 
 class GetCurrentTimeOutput(ToolOutput):

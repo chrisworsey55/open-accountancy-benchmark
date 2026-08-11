@@ -8,6 +8,7 @@ from .manifests import (
     load_answer_key,
     load_episode_manifest,
     load_uk_episode_manifests,
+    load_us_episode_manifests,
     validate_answer_key,
 )
 from .references import (
@@ -26,6 +27,7 @@ __all__ = [
     "load_answer_key",
     "load_episode_manifest",
     "load_uk_episode_manifests",
+    "load_us_episode_manifests",
     "run_reference_episode",
     "validate_answer_key",
 ]

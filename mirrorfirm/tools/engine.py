@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import csv
 import hashlib
+import re
 from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any, Callable, Iterable, Literal, TypeVar, cast
 
 from pydantic import BaseModel, ValidationError
 
+from mirrorfirm.core.approval import approved_message_digest
 from mirrorfirm.core.db import WorldStore
 from mirrorfirm.core.digest import logical_state_digest
 from mirrorfirm.core.models import (
@@ -234,12 +236,49 @@ class WorldToolEngine:
 
     def _tool_get_context(self, _: BaseModel) -> tuple[dict[str, Any], list[Mutation]]:
         client = self._must_load(Client, self.client_id)
+        # A practice-wide record may name every person in the firm.  The scoped tool
+        # context exposes only firm roles plus contacts belonging to this client, so
+        # it cannot become an indirect cross-client directory read.
+        visible_people = {
+            person.id
+            for person in self._list(Person)
+            if person.client_id is None or person.client_id == self.client_id
+        }
+        practice = self.practice.model_copy(
+            update={
+                "people": [
+                    person_id
+                    for person_id in self.practice.people
+                    if person_id in visible_people
+                ]
+            }
+        )
+        scoped_periods = [
+            period
+            for period in self._list(AccountingPeriod)
+            if period.id in self.engagement.period_ids
+        ]
+        scoped_accounts = [
+            account
+            for account in self._list(Account)
+            if self._client_for_entity(account.entity_id) == self.client_id
+        ]
+        scoped_bank_accounts = [
+            account
+            for account in self._list(BankAccount)
+            if self._bank_account_is_scoped(account)
+        ]
         return (
             {
-                "practice": self._dump(self.practice),
+                "practice": self._dump(practice),
                 "engagement": self._dump(self.engagement),
                 "client": self._dump(client),
                 "actor": self._dump(self.actor),
+                "periods": [self._dump(period) for period in scoped_periods],
+                "accounts": [self._dump(account) for account in scoped_accounts],
+                "bank_accounts": [
+                    self._dump(account) for account in scoped_bank_accounts
+                ],
             },
             [],
         )
@@ -292,6 +331,7 @@ class WorldToolEngine:
             document
             for document in self._list(Document)
             if document.client_id == self.client_id
+            and self._document_is_scoped(document)
             and self._document_is_available(document)
             and (kind is None or document.kind == kind)
         ]
@@ -341,8 +381,10 @@ class WorldToolEngine:
         kind = getattr(value, "kind")
         matches: list[dict[str, Any]] = []
         for document in self._list(Document):
-            if document.client_id != self.client_id or not self._document_is_available(
-                document
+            if (
+                document.client_id != self.client_id
+                or not self._document_is_scoped(document)
+                or not self._document_is_available(document)
             ):
                 continue
             if kind is not None and document.kind != kind:
@@ -361,7 +403,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         bank_account = self._must_load(BankAccount, getattr(value, "bank_account_id"))
-        self._require_scope(self._client_for_entity(bank_account.entity_id))
+        self._require_bank_account_scope(bank_account)
         period_id = getattr(value, "period_id")
         period = self._scoped_period(period_id) if period_id else None
         status = getattr(value, "status")
@@ -390,7 +432,7 @@ class WorldToolEngine:
         source = getattr(value, "source")
         lines: list[dict[str, Any]] = []
         for journal in self._list(Journal):
-            if self._client_for_entity(journal.entity_id) != self.client_id:
+            if not self._journal_is_scoped(journal):
                 continue
             if period and not (period.start <= journal.date <= period.end):
                 continue
@@ -420,7 +462,11 @@ class WorldToolEngine:
         period = self._scoped_period(getattr(value, "period_id"))
         balances: dict[str, int] = {}
         for journal in self._list(Journal):
-            if journal.status != "posted" or journal.entity_id != period.entity_id:
+            if (
+                journal.status != "posted"
+                or journal.entity_id != period.entity_id
+                or not self._journal_is_scoped(journal)
+            ):
                 continue
             if not period.start <= journal.date <= period.end:
                 continue
@@ -435,7 +481,7 @@ class WorldToolEngine:
         threads = [
             thread
             for thread in self._list(Thread)
-            if thread.client_id == self.client_id
+            if thread.client_id == self.client_id and self._thread_is_scoped(thread)
         ]
         return {"threads": [self._dump(thread) for thread in threads]}, []
 
@@ -443,7 +489,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         thread = self._must_load(Thread, getattr(value, "thread_id"))
-        self._require_scope(thread.client_id)
+        self._require_thread_scope(thread)
         messages = [
             self._must_load(Message, message_id) for message_id in thread.message_ids
         ]
@@ -457,7 +503,7 @@ class WorldToolEngine:
     ) -> tuple[dict[str, Any], list[Mutation]]:
         bank_account = self._must_load(BankAccount, getattr(value, "bank_account_id"))
         period = self._scoped_period(getattr(value, "period_id"))
-        self._require_scope(self._client_for_entity(bank_account.entity_id))
+        self._require_bank_account_scope(bank_account)
         workpapers = [
             workpaper
             for workpaper in self._list(Workpaper)
@@ -533,6 +579,8 @@ class WorldToolEngine:
     def _tool_compare_datasets(
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
+        self._require_payload_reference_scope(getattr(value, "left"))
+        self._require_payload_reference_scope(getattr(value, "right"))
         left = self._dataset_rows(getattr(value, "left"))
         right = self._dataset_rows(getattr(value, "right"))
         keys = getattr(value, "keys")
@@ -584,7 +632,7 @@ class WorldToolEngine:
         prepared: list[tuple[BankTransaction, Journal, list[str]]] = []
         for item in getattr(value, "items"):
             transaction = self._must_load(BankTransaction, item.bank_transaction_id)
-            self._require_scope(self._client_for_bank_transaction(transaction))
+            self._require_bank_transaction_scope(transaction)
             if not self._bank_transaction_is_available(transaction.id):
                 raise ToolExecutionError(
                     "NOT_FOUND",
@@ -630,6 +678,7 @@ class WorldToolEngine:
                 lines=lines,
                 proposed_by=self.actor.id,
                 approval_id=None,
+                engagement_id=self.engagement.id,
             )
             prepared.append((transaction, journal, item.provenance_refs))
 
@@ -686,6 +735,7 @@ class WorldToolEngine:
         entity_id = entity_ids.pop()
         self._require_scope(self._client_for_entity(entity_id))
         period = self._period_for_date(entity_id, getattr(value, "date"))
+        self._scoped_period(period.id)
         if period.status == "locked":
             self._guard_period(period)
         self._require_provenance(getattr(value, "provenance_refs"))
@@ -700,6 +750,7 @@ class WorldToolEngine:
                 lines=lines,
                 proposed_by=self.actor.id,
                 approval_id=None,
+                engagement_id=self.engagement.id,
             )
         except ValidationError as error:
             raise ToolExecutionError(
@@ -749,6 +800,8 @@ class WorldToolEngine:
             rationale=getattr(value, "rationale"),
             provenance_refs=getattr(value, "provenance_refs"),
             status="requested",
+            approved_draft_digest=self._approval_draft_digest(descriptor),
+            engagement_id=self.engagement.id,
         )
         self.store.save(approval)
         return {"approval": self._dump(approval)}, [
@@ -775,6 +828,7 @@ class WorldToolEngine:
             client_id=client_id,
             subject="Information request",
             message_ids=[],
+            engagement_id=self.engagement.id,
         )
         message = Message(
             id=self._new_id("msg"),
@@ -794,6 +848,7 @@ class WorldToolEngine:
             thread_id=thread.id,
             items=getattr(value, "items"),
             status="draft",
+            engagement_id=self.engagement.id,
         )
         for record in (thread, message, irq):
             self.store.save(record)
@@ -820,7 +875,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         message = self._must_load(Message, getattr(value, "message_id"))
-        self._require_scope(self._client_for_message(message))
+        self._require_message_scope(message)
         if message.status != "draft":
             raise ToolExecutionError(
                 "VALIDATION_ERROR", "only draft messages may be updated"
@@ -843,6 +898,7 @@ class WorldToolEngine:
         irq = self._irq_for_thread(message.thread_id)
         items = getattr(value, "items")
         if irq is not None and items is not None:
+            self._require_information_request_scope(irq)
             irq = irq.model_copy(update={"items": items})
             self.store.save(irq)
             mutations.append(
@@ -850,6 +906,7 @@ class WorldToolEngine:
                     "InformationRequest", irq.id, "updated", "request items updated"
                 )
             )
+        mutations.extend(self._expire_draft_approvals(message.id))
         return {
             "message": self._dump(updated),
             "information_request": self._dump(irq) if irq else None,
@@ -859,7 +916,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         message = self._must_load(Message, getattr(value, "draft_message_id"))
-        self._require_scope(self._client_for_message(message))
+        self._require_message_scope(message)
         irq = self._irq_for_thread(message.thread_id)
         if irq is None or message.status != "draft" or irq.status != "draft":
             raise ToolExecutionError(
@@ -877,7 +934,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         thread = self._must_load(Thread, getattr(value, "thread_id"))
-        self._require_scope(thread.client_id)
+        self._require_thread_scope(thread)
         client = self._must_load(Client, thread.client_id)
         self._require_attachments(getattr(value, "attachments"))
         message = Message(
@@ -905,7 +962,7 @@ class WorldToolEngine:
         self, value: BaseModel
     ) -> tuple[dict[str, Any], list[Mutation]]:
         message = self._must_load(Message, getattr(value, "draft_message_id"))
-        self._require_scope(self._client_for_message(message))
+        self._require_message_scope(message)
         if message.status != "draft":
             raise ToolExecutionError(
                 "NOTHING_TO_APPROVE", "no draft reply is available to send"
@@ -1175,6 +1232,13 @@ class WorldToolEngine:
         if isinstance(payload, ClientReplyPayload):
             thread_id = self._expand_template(payload.thread_ref, bound)
             thread = self._must_load(Thread, thread_id)
+            self._require_thread_scope(thread)
+            attachments = [
+                self._expand_template(reference, bound)
+                for reference in payload.attachment_fixture_refs
+            ]
+            for attachment in attachments:
+                self._require_document_scope(self._must_load(Document, attachment))
             client = self._must_load(Client, thread.client_id)
             sender = client.contacts[0] if client.contacts else "per-sys"
             message = Message(
@@ -1184,8 +1248,8 @@ class WorldToolEngine:
                 recipients=[self.actor.id],
                 status="sent",
                 world_time=due_time,
-                body=payload.body,
-                attachments=payload.attachment_fixture_refs,
+                body=self._expand_template(payload.body, bound),
+                attachments=attachments,
                 direction="inbound",
             )
             self.store.save(message)
@@ -1222,18 +1286,22 @@ class WorldToolEngine:
                     "VALIDATION_ERROR",
                     "approval decisions must be bound to a scoped approval event",
                 )
-            updated = bound.model_copy(update={"status": payload.decision})
+            decision: Literal["granted", "rejected", "expired"] = payload.decision
+            if decision == "granted" and not self._approval_matches_current_draft(
+                bound
+            ):
+                decision = "expired"
+            updated = bound.model_copy(update={"status": decision})
             self.store.save(updated)
             mutations.append(
-                self._mutation(
-                    "Approval", updated.id, "status_changed", payload.decision
-                )
+                self._mutation("Approval", updated.id, "status_changed", decision)
             )
             surface_refs.append(updated.id)
-            if payload.decision == "granted":
+            if decision == "granted":
                 self._execute_granted_approval(updated, due_time)
         elif isinstance(payload, ReviewerNotePayload):
             target = self._expand_template(payload.target_ref, bound)
+            self._require_scoped_reference(target)
             note = ReviewNote(
                 id=self._new_id("rvn"),
                 engagement_id=self.engagement.id,
@@ -1250,10 +1318,24 @@ class WorldToolEngine:
             mutations.extend(self._apply_reviewer_effect(payload, target))
             surface_refs.append(target)
         elif isinstance(payload, NewBankFeedPayload):
-            surface_refs.extend(payload.txn_fixture_refs)
+            bank_account_id = self._expand_template(payload.bank_account_id, bound)
+            self._require_bank_account_scope(
+                self._must_load(BankAccount, bank_account_id)
+            )
+            transaction_ids = [
+                self._expand_template(reference, bound)
+                for reference in payload.txn_fixture_refs
+            ]
+            for transaction_id in transaction_ids:
+                self._require_bank_transaction_scope(
+                    self._must_load(BankTransaction, transaction_id)
+                )
+            surface_refs.extend(transaction_ids)
         elif isinstance(payload, DeadlinePayload):
             if payload.task_id:
-                surface_refs.append(payload.task_id)
+                task_id = self._expand_template(payload.task_id, bound)
+                self._require_task_scope(self._must_load(Task, task_id))
+                surface_refs.append(task_id)
         self.store.mark_event_fired(event.id)
         self._pending_fired_event_ids.add(event.id)
         output = {
@@ -1286,6 +1368,7 @@ class WorldToolEngine:
             descriptor, (PostJournalDescriptor, PostToClosedPeriodDescriptor)
         ):
             journal = self._must_load(Journal, descriptor.journal_id)
+            self._require_journal_scope(journal)
             period = self._period_for_date(journal.entity_id, journal.date)
             if isinstance(descriptor, PostJournalDescriptor):
                 if period.status == "closed":
@@ -1320,6 +1403,7 @@ class WorldToolEngine:
                     transaction = self._must_load(
                         BankTransaction, line.bank_transaction_id
                     )
+                    self._require_bank_transaction_scope(transaction)
                     self.store.save(
                         transaction.model_copy(
                             update={"classification_status": "classified"}
@@ -1347,6 +1431,11 @@ class WorldToolEngine:
             output["journal_id"] = posted.id
         elif isinstance(descriptor, SendMessageDescriptor):
             message = self._must_load(Message, descriptor.draft_message_id)
+            self._require_message_scope(message)
+            if not self._approval_matches_current_draft(approval):
+                raise ToolExecutionError(
+                    "NOTHING_TO_APPROVE", "approved draft revision is no longer current"
+                )
             sent, _, sent_mutations = self._send_message(
                 message, self._irq_for_thread(message.thread_id), at=at
             )
@@ -1364,7 +1453,7 @@ class WorldToolEngine:
             )
             output["message_id"] = sent.id
         elif isinstance(descriptor, ClosePeriodDescriptor):
-            period = self._must_load(AccountingPeriod, descriptor.period_id)
+            period = self._scoped_period(descriptor.period_id)
             self.store.save(period.model_copy(update={"status": "closed"}))
             mutations.append(
                 self._mutation(
@@ -1502,7 +1591,7 @@ class WorldToolEngine:
         provenance_sets: list[list[str]] = []
         if isinstance(body, BankReconWorkpaper):
             bank_account = self._must_load(BankAccount, body.bank_account_id)
-            self._require_scope(self._client_for_entity(bank_account.entity_id))
+            self._require_bank_account_scope(bank_account)
             self._scoped_period(body.period_id)
             outstanding_total = sum(item.amount_minor for item in body.outstanding)
             difference = body.statement_end_minor - (
@@ -1551,7 +1640,7 @@ class WorldToolEngine:
             )
             if transaction is None:
                 continue
-            self._require_scope(self._client_for_bank_transaction(transaction))
+            self._require_bank_transaction_scope(transaction)
             if transaction.reconciliation_status == "flagged":
                 continue
             self.store.save(
@@ -1608,7 +1697,7 @@ class WorldToolEngine:
             descriptor, (PostJournalDescriptor, PostToClosedPeriodDescriptor)
         ):
             journal = self._must_load(Journal, descriptor.journal_id)
-            self._require_scope(self._client_for_entity(journal.entity_id))
+            self._require_journal_scope(journal)
             if journal.status != "proposed":
                 raise ToolExecutionError(
                     "NOTHING_TO_APPROVE", "journal is not proposed"
@@ -1637,13 +1726,74 @@ class WorldToolEngine:
                     )
         elif isinstance(descriptor, SendMessageDescriptor):
             message = self._must_load(Message, descriptor.draft_message_id)
-            self._require_scope(self._client_for_message(message))
+            self._require_message_scope(message)
             if message.status != "draft":
                 raise ToolExecutionError("NOTHING_TO_APPROVE", "message is not a draft")
         elif isinstance(descriptor, ClosePeriodDescriptor):
             period = self._scoped_period(descriptor.period_id)
             if period.status != "in_close":
                 raise ToolExecutionError("NOTHING_TO_APPROVE", "period is not in close")
+
+    def _approval_draft_digest(self, descriptor: Any) -> str | None:
+        """Return the immutable send payload digest when an approval targets a draft."""
+
+        if not isinstance(descriptor, SendMessageDescriptor):
+            return None
+        message = self._must_load(Message, descriptor.draft_message_id)
+        self._require_message_scope(message)
+        thread = self._must_load(Thread, message.thread_id)
+        request = self._irq_for_thread(thread.id)
+        if request is not None:
+            self._require_information_request_scope(request)
+        return approved_message_digest(
+            message,
+            thread,
+            request,
+            client_id=self.client_id,
+            engagement_id=self.engagement.id,
+        )
+
+    def _approval_matches_current_draft(self, approval: Approval) -> bool:
+        """Whether an approval still describes the exact draft it authorised."""
+
+        descriptor = approval.action_descriptor
+        if not isinstance(descriptor, SendMessageDescriptor):
+            return True
+        if (
+            approval.engagement_id is not None
+            and approval.engagement_id != self.engagement.id
+        ):
+            return False
+        if approval.approved_draft_digest is None:
+            return False
+        try:
+            return approval.approved_draft_digest == self._approval_draft_digest(
+                descriptor
+            )
+        except ToolExecutionError:
+            return False
+
+    def _expire_draft_approvals(self, message_id: str) -> list[Mutation]:
+        """Permanently expire approvals when a send-relevant draft revision changes."""
+
+        mutations: list[Mutation] = []
+        for approval in self._list(Approval):
+            descriptor = approval.action_descriptor
+            if (
+                isinstance(descriptor, SendMessageDescriptor)
+                and descriptor.draft_message_id == message_id
+                and approval.status in {"requested", "granted"}
+            ):
+                self.store.save(approval.model_copy(update={"status": "expired"}))
+                mutations.append(
+                    self._mutation(
+                        "Approval",
+                        approval.id,
+                        "status_changed",
+                        "expired after draft revision",
+                    )
+                )
+        return mutations
 
     def _guard_outbound_policy(self, draft_message_id: str) -> None:
         if self.practice.policies.outbound_comms == "agent_drafts_only":
@@ -1821,6 +1971,71 @@ class WorldToolEngine:
                 "SCOPE_VIOLATION", "reference is outside the current client scope"
             )
 
+    def _engagements_for_client(self, client_id: str) -> tuple[Engagement, ...]:
+        """Return the active bookkeeping contexts that can own a client record."""
+
+        return tuple(
+            engagement
+            for engagement in self._list(Engagement)
+            if engagement.client_id == client_id and engagement.status == "active"
+        )
+
+    def _record_is_scoped(
+        self, client_id: str | None, record_engagement_id: str | None
+    ) -> bool:
+        """Check explicit ownership, rejecting ambiguous legacy client-only records."""
+
+        if client_id != self.client_id:
+            return False
+        if record_engagement_id is not None:
+            return record_engagement_id == self.engagement.id
+        # Older single-engagement worlds retain their v0.1 records unchanged.  Once a
+        # client has multiple active engagements, an unassigned record is deliberately
+        # inaccessible rather than becoming visible in both workspaces.
+        return len(self._engagements_for_client(self.client_id)) == 1
+
+    def _require_record_scope(
+        self, client_id: str | None, record_engagement_id: str | None
+    ) -> None:
+        self._require_scope(client_id)
+        if not self._record_is_scoped(client_id, record_engagement_id):
+            raise ToolExecutionError(
+                "SCOPE_VIOLATION",
+                "reference is outside the current engagement scope",
+            )
+
+    def _document_is_scoped(self, document: Document) -> bool:
+        return self._record_is_scoped(document.client_id, document.engagement_id)
+
+    def _require_document_scope(self, document: Document) -> None:
+        self._require_record_scope(document.client_id, document.engagement_id)
+
+    def _thread_is_scoped(self, thread: Thread) -> bool:
+        return self._record_is_scoped(thread.client_id, thread.engagement_id)
+
+    def _require_thread_scope(self, thread: Thread) -> None:
+        self._require_record_scope(thread.client_id, thread.engagement_id)
+
+    def _bank_account_is_scoped(self, bank_account: BankAccount) -> bool:
+        return self._record_is_scoped(
+            self._client_for_entity(bank_account.entity_id), bank_account.engagement_id
+        )
+
+    def _require_bank_account_scope(self, bank_account: BankAccount) -> None:
+        self._require_record_scope(
+            self._client_for_entity(bank_account.entity_id), bank_account.engagement_id
+        )
+
+    def _journal_is_scoped(self, journal: Journal) -> bool:
+        return self._record_is_scoped(
+            self._client_for_entity(journal.entity_id), journal.engagement_id
+        )
+
+    def _require_journal_scope(self, journal: Journal) -> None:
+        self._require_record_scope(
+            self._client_for_entity(journal.entity_id), journal.engagement_id
+        )
+
     def _require_task_scope(self, task: Task) -> None:
         self._require_scope(self._client_for_task(task))
         if task.engagement_id != self.engagement.id:
@@ -1905,9 +2120,39 @@ class WorldToolEngine:
     def _client_for_message(self, message: Message) -> str:
         return self._must_load(Thread, message.thread_id).client_id
 
+    def _require_message_scope(self, message: Message) -> None:
+        self._require_thread_scope(self._must_load(Thread, message.thread_id))
+
+    def _information_request_is_scoped(self, request: InformationRequest) -> bool:
+        if request.thread_id is None:
+            return self._record_is_scoped(request.client_id, request.engagement_id)
+        try:
+            thread = self._must_load(Thread, request.thread_id)
+        except ToolExecutionError:
+            return False
+        return self._record_is_scoped(
+            request.client_id,
+            request.engagement_id,
+        ) and self._thread_is_scoped(thread)
+
+    def _require_information_request_scope(self, request: InformationRequest) -> None:
+        self._require_record_scope(request.client_id, request.engagement_id)
+        if request.thread_id is not None:
+            self._require_thread_scope(self._must_load(Thread, request.thread_id))
+
     def _client_for_bank_transaction(self, transaction: BankTransaction) -> str:
         bank_account = self._must_load(BankAccount, transaction.bank_account_id)
         return self._client_for_entity(bank_account.entity_id)
+
+    def _bank_transaction_is_scoped(self, transaction: BankTransaction) -> bool:
+        return self._bank_account_is_scoped(
+            self._must_load(BankAccount, transaction.bank_account_id)
+        )
+
+    def _require_bank_transaction_scope(self, transaction: BankTransaction) -> None:
+        self._require_bank_account_scope(
+            self._must_load(BankAccount, transaction.bank_account_id)
+        )
 
     def _bank_transaction_is_available(self, transaction_id: str) -> bool:
         for event in self._list(Event):
@@ -1923,6 +2168,16 @@ class WorldToolEngine:
     def _scoped_period(self, period_id: str) -> AccountingPeriod:
         period = self._must_load(AccountingPeriod, period_id)
         self._require_scope(self._client_for_entity(period.entity_id))
+        period_owners = [
+            engagement.id
+            for engagement in self._engagements_for_client(self.client_id)
+            if period.id in engagement.period_ids
+        ]
+        if period_owners != [self.engagement.id]:
+            raise ToolExecutionError(
+                "SCOPE_VIOLATION",
+                "period is outside the current engagement scope",
+            )
         return period
 
     def _period_for_date(self, entity_id: str, value: date) -> AccountingPeriod:
@@ -1951,7 +2206,7 @@ class WorldToolEngine:
 
     def _available_document(self, doc_id: str) -> Document:
         document = self._must_load(Document, doc_id)
-        self._require_scope(document.client_id)
+        self._require_document_scope(document)
         if not self._document_is_available(document):
             raise ToolExecutionError(
                 "NOT_FOUND", "document is not available at current world time"
@@ -1972,6 +2227,11 @@ class WorldToolEngine:
     def _event_is_eligible(self, event: Event, bound: BaseModel | None) -> bool:
         """Whether an event may affect this engine's one engagement/client scope."""
 
+        if (
+            event.engagement_id is not None
+            and event.engagement_id != self.engagement.id
+        ):
+            return False
         if isinstance(event.trigger, AfterEntity):
             if bound is None or not self._entity_is_scoped(bound):
                 return False
@@ -1984,20 +2244,24 @@ class WorldToolEngine:
         if isinstance(payload, ClientReplyPayload):
             thread_id = self._expand_template(payload.thread_ref, bound)
             try:
-                return self._must_load(Thread, thread_id).client_id == self.client_id
+                return self._thread_is_scoped(self._must_load(Thread, thread_id))
             except ToolExecutionError:
                 return False
         if isinstance(payload, NewBankFeedPayload):
             try:
-                bank = self._must_load(BankAccount, payload.bank_account_id)
-                return self._client_for_entity(bank.entity_id) == self.client_id
+                bank = self._must_load(
+                    BankAccount, self._expand_template(payload.bank_account_id, bound)
+                )
+                return self._bank_account_is_scoped(bank)
             except ToolExecutionError:
                 return False
         if isinstance(payload, DeadlinePayload):
             if payload.task_id is None:
                 return False
             try:
-                return self._task_is_scoped(self._must_load(Task, payload.task_id))
+                return self._task_is_scoped(
+                    self._must_load(Task, self._expand_template(payload.task_id, bound))
+                )
             except ToolExecutionError:
                 return False
         if isinstance(payload, ApprovalDecisionPayload):
@@ -2013,11 +2277,15 @@ class WorldToolEngine:
 
     def _entity_is_scoped(self, entity: BaseModel) -> bool:
         if isinstance(entity, InformationRequest):
-            return entity.client_id == self.client_id
+            return self._information_request_is_scoped(entity)
         if isinstance(entity, Approval):
             return self._is_scoped_approval(entity)
         if isinstance(entity, Message):
-            return self._client_for_message(entity) == self.client_id
+            try:
+                self._require_message_scope(entity)
+            except ToolExecutionError:
+                return False
+            return True
         if isinstance(entity, Workpaper):
             return self._workpaper_is_scoped(entity)
         if isinstance(entity, Task):
@@ -2123,7 +2391,59 @@ class WorldToolEngine:
         for reference in references:
             self._require_scoped_reference(reference)
 
+    def _require_payload_reference_scope(self, value: object) -> None:
+        """Reject structured compute inputs that name a known out-of-scope record.
+
+        ``compare_datasets`` accepts literal rows as well as engine-owned tables.
+        A literal ``source_ref`` therefore needs the same scope gate as provenance;
+        otherwise a second engagement can reflect a protected record through a
+        calculation Action without first reading it.
+        """
+
+        if isinstance(value, str):
+            if self._reference_exists(value):
+                self._require_scoped_reference(value)
+            return
+        if isinstance(value, dict):
+            for item in value.values():
+                self._require_payload_reference_scope(item)
+            return
+        if isinstance(value, list | tuple):
+            for item in value:
+                self._require_payload_reference_scope(item)
+
+    def _reference_exists(self, reference: str) -> bool:
+        """Determine whether a string is a persisted identifier without leaking it."""
+
+        if reference == self.client_id:
+            return True
+        model_types: tuple[type[VersionedModel], ...] = (
+            Client,
+            Account,
+            AccountingPeriod,
+            BankAccount,
+            BankTransaction,
+            Document,
+            Thread,
+            Message,
+            InformationRequest,
+            Task,
+            Workpaper,
+            Journal,
+            Approval,
+            ReviewNote,
+            ProvenanceRecord,
+            Event,
+        )
+        return any(
+            any(getattr(item, "id", None) == reference for item in self._list(model))
+            for model in model_types
+        )
+
     def _require_scoped_reference(self, reference: str) -> None:
+        if reference in {client.id for client in self._list(Client)}:
+            self._require_scope(reference)
+            return
         if reference.startswith("act-r"):
             if reference not in self._visible_action_ids:
                 raise ToolExecutionError(
@@ -2141,29 +2461,100 @@ class WorldToolEngine:
         if workpaper is not None:
             self._require_workpaper_scope(workpaper)
             return
+        document = next(
+            (item for item in self._list(Document) if item.id == reference), None
+        )
+        if document is not None:
+            self._require_document_scope(document)
+            if not self._document_is_available(document):
+                raise ToolExecutionError(
+                    "NOT_FOUND", "document is not available at current world time"
+                )
+            return
+        thread = next(
+            (item for item in self._list(Thread) if item.id == reference), None
+        )
+        if thread is not None:
+            self._require_thread_scope(thread)
+            return
+        message = next(
+            (item for item in self._list(Message) if item.id == reference), None
+        )
+        if message is not None:
+            self._require_message_scope(message)
+            return
+        request = next(
+            (item for item in self._list(InformationRequest) if item.id == reference),
+            None,
+        )
+        if request is not None:
+            self._require_information_request_scope(request)
+            return
+        journal = next(
+            (item for item in self._list(Journal) if item.id == reference), None
+        )
+        if journal is not None:
+            self._require_journal_scope(journal)
+            return
+        transaction = next(
+            (item for item in self._list(BankTransaction) if item.id == reference),
+            None,
+        )
+        if transaction is not None:
+            self._require_bank_transaction_scope(transaction)
+            if not self._bank_transaction_is_available(transaction.id):
+                raise ToolExecutionError(
+                    "NOT_FOUND",
+                    "bank transaction is not available at current world time",
+                )
+            return
+        bank_account = next(
+            (item for item in self._list(BankAccount) if item.id == reference), None
+        )
+        if bank_account is not None:
+            self._require_bank_account_scope(bank_account)
+            return
+        period = next(
+            (item for item in self._list(AccountingPeriod) if item.id == reference),
+            None,
+        )
+        if period is not None:
+            self._scoped_period(period.id)
+            return
+        approval = next(
+            (item for item in self._list(Approval) if item.id == reference), None
+        )
+        if approval is not None:
+            if not self._is_scoped_approval(approval):
+                raise ToolExecutionError(
+                    "SCOPE_VIOLATION",
+                    "approval is outside the current engagement scope",
+                )
+            return
+        review_note = next(
+            (item for item in self._list(ReviewNote) if item.id == reference), None
+        )
+        if review_note is not None:
+            if review_note.engagement_id != self.engagement.id:
+                raise ToolExecutionError(
+                    "SCOPE_VIOLATION",
+                    "review note is outside the current engagement scope",
+                )
+            return
+        provenance = next(
+            (item for item in self._list(ProvenanceRecord) if item.id == reference),
+            None,
+        )
+        if provenance is not None:
+            self._require_scoped_reference(provenance.subject_ref)
+            self._require_scoped_reference(provenance.basis_ref)
+            return
         client_id = self._client_for_reference(reference)
         if client_id is None:
             raise ToolExecutionError(
                 "NOT_FOUND", f"reference {reference!r} was not found"
             )
         self._require_scope(client_id)
-        document = next(
-            (item for item in self._list(Document) if item.id == reference), None
-        )
-        if document is not None and not self._document_is_available(document):
-            raise ToolExecutionError(
-                "NOT_FOUND", "document is not available at current world time"
-            )
-        transaction = next(
-            (item for item in self._list(BankTransaction) if item.id == reference),
-            None,
-        )
-        if transaction is not None and not self._bank_transaction_is_available(
-            transaction.id
-        ):
-            raise ToolExecutionError(
-                "NOT_FOUND", "bank transaction is not available at current world time"
-            )
 
     def _client_for_reference(self, reference: str) -> str | None:
         for document in self._list(Document):
@@ -2199,6 +2590,9 @@ class WorldToolEngine:
         for approval in self._list(Approval):
             if approval.id == reference:
                 return self.client_id if self._is_scoped_approval(approval) else None
+        for note in self._list(ReviewNote):
+            if note.id == reference:
+                return self._must_load(Engagement, note.engagement_id).client_id
         return None
 
     def _save_provenance(
@@ -2218,30 +2612,35 @@ class WorldToolEngine:
         return provenance
 
     def _is_scoped_approval(self, approval: Approval) -> bool:
+        if (
+            approval.engagement_id is not None
+            and approval.engagement_id != self.engagement.id
+        ):
+            return False
         descriptor = approval.action_descriptor
         if isinstance(
             descriptor, (PostJournalDescriptor, PostToClosedPeriodDescriptor)
         ):
-            return (
-                self._client_for_entity(
-                    self._must_load(Journal, descriptor.journal_id).entity_id
+            try:
+                return self._journal_is_scoped(
+                    self._must_load(Journal, descriptor.journal_id)
                 )
-                == self.client_id
-            )
+            except ToolExecutionError:
+                return False
         if isinstance(descriptor, SendMessageDescriptor):
-            return (
-                self._client_for_message(
+            try:
+                self._require_message_scope(
                     self._must_load(Message, descriptor.draft_message_id)
                 )
-                == self.client_id
-            )
+            except ToolExecutionError:
+                return False
+            return True
         if isinstance(descriptor, ClosePeriodDescriptor):
-            return (
-                self._client_for_entity(
-                    self._must_load(AccountingPeriod, descriptor.period_id).entity_id
-                )
-                == self.client_id
-            )
+            try:
+                self._scoped_period(descriptor.period_id)
+            except ToolExecutionError:
+                return False
+            return True
         return False
 
     def _first_matching_entity(self, trigger: AfterEntity) -> BaseModel | None:
@@ -2305,12 +2704,51 @@ class WorldToolEngine:
         return None
 
     def _expand_template(self, value: str, entity: BaseModel | None) -> str:
-        if entity is None:
+        """Expand a compiler-validated template and reject a malformed fallback."""
+
+        if "${" not in value:
             return value
-        rendered = value
-        for field_name, field_value in entity.model_dump(mode="json").items():
-            rendered = rendered.replace(f"${{entity.{field_name}}}", str(field_value))
-        return rendered
+        if entity is None:
+            raise ToolExecutionError(
+                "VALIDATION_ERROR", "event template has no bound source entity"
+            )
+        pattern = re.compile(
+            r"\$\{entity\.(?P<path>[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*)\}"
+        )
+        matches = tuple(pattern.finditer(value))
+        if not matches or any(
+            not any(match.start() == index for match in matches)
+            for index in range(len(value))
+            if value.startswith("${", index)
+        ):
+            raise ToolExecutionError(
+                "VALIDATION_ERROR", "event template syntax is invalid"
+            )
+
+        def resolve(match: re.Match[str]) -> str:
+            resolved: object = entity
+            for part in match.group("path").split("."):
+                if isinstance(resolved, BaseModel):
+                    if part not in type(resolved).model_fields:
+                        raise ToolExecutionError(
+                            "VALIDATION_ERROR",
+                            f"event template references missing field {part!r}",
+                        )
+                    resolved = getattr(resolved, part)
+                elif isinstance(resolved, dict) and part in resolved:
+                    resolved = resolved[part]
+                else:
+                    raise ToolExecutionError(
+                        "VALIDATION_ERROR",
+                        f"event template references missing field {part!r}",
+                    )
+            if resolved is None:
+                raise ToolExecutionError(
+                    "VALIDATION_ERROR", "event template resolved to no value"
+                )
+            return str(resolved)
+
+        return pattern.sub(resolve, value)
 
     def _source_rows(self, source: str) -> list[dict[str, Any]]:
         if source in self._tables:
@@ -2319,7 +2757,7 @@ class WorldToolEngine:
             return [
                 {**self._dump(transaction), "source_ref": transaction.id}
                 for transaction in self._list(BankTransaction)
-                if self._client_for_bank_transaction(transaction) == self.client_id
+                if self._bank_transaction_is_scoped(transaction)
                 and self._bank_transaction_is_available(transaction.id)
             ]
         if source == "ledger_lines":
@@ -2414,7 +2852,7 @@ class WorldToolEngine:
         if isinstance(binding, str) and binding.endswith(".amount_minor"):
             transaction_id = binding.removesuffix(".amount_minor")
             transaction = self._must_load(BankTransaction, transaction_id)
-            self._require_scope(self._client_for_bank_transaction(transaction))
+            self._require_bank_transaction_scope(transaction)
             if not self._bank_transaction_is_available(transaction.id):
                 raise ToolExecutionError(
                     "UNRESOLVED_BINDING",

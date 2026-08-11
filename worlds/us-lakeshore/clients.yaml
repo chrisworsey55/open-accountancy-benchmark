@@ -1,0 +1,20 @@
+- id: cli-cedarline
+  name: Cedarline Landscaping LLC
+  status: active
+  entity:
+    id: ent-cedarline
+    legal_form: limited_liability_company
+    basis: accrual
+    currency: USD
+    tax: {kind: us, sales_tax_nexus: [MI]}
+  contacts: [per-cedarline-contact]
+- id: cli-marlowe
+  name: Marlowe Design Studio Inc
+  status: active
+  entity:
+    id: ent-marlowe
+    legal_form: s_corporation
+    basis: accrual
+    currency: USD
+    tax: {kind: us, sales_tax_nexus: [MI]}
+  contacts: [per-marlowe-contact]

@@ -1,0 +1,13 @@
+world_id: wld-us-lakeshore
+world_version: 0.1.0
+jurisdiction: us
+timezone: America/New_York
+title: Lakeshore Ledger Co. — May 2026 close
+description: Fictional two-client US bookkeeping world for approval-gated recurring-work evaluation.
+seed: 20260502
+start_world_time: 2026-05-28T13:00:00Z
+practice_file: practice.yaml
+client_files: [clients.yaml]
+events_file: events.yaml
+trap_register_file: traps.yaml
+license: CC-BY-4.0

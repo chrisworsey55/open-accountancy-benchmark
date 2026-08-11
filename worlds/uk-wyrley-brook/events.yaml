@@ -1,13 +1,17 @@
 events:
   - id: evt-uk01-brightpath-reply
+    engagement_id: eng-brightpath-bookkeeping
     trigger: {kind: after_entity, entity_kind: information_request, match: {client_id: cli-brightpath, status: sent}, offset: {business_days: 1}}
     payload: {kind: client_reply, thread_ref: "${entity.thread_id}", body: "Attached is the £480.00 receipt. I could not find the other requested item.", attachment_fixture_refs: [doc-brightpath-may-480-receipt], marks_irq: responded_partial}
   - id: evt-uk02-kestrel-recon-deadline
+    engagement_id: eng-kestrel-bookkeeping
     trigger: {kind: at_time, world_time: 2026-05-29T15:00:00Z}
     payload: {kind: deadline, description: Fictional Kestrel reconciliation review checkpoint., task_id: tsk-kestrel-may-recon}
   - id: evt-uk03-vat-review-reminder
+    engagement_id: eng-brightpath-bookkeeping
     trigger: {kind: at_time, world_time: 2026-05-29T12:00:00Z}
     payload: {kind: deadline, description: Fictional BrightPath VAT correction review reminder., task_id: tsk-brightpath-vat-correction}
   - id: evt-uk04-harper-horizon
+    engagement_id: eng-harper-bookkeeping
     trigger: {kind: at_time, world_time: 2026-06-05T16:00:00Z}
     payload: {kind: deadline, description: Harper evidence-chase horizon elapsed without a reply., task_id: tsk-harper-evidence-chase}

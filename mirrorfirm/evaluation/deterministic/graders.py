@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import ClassVar, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from mirrorfirm.core.approval import approved_message_digest
 from mirrorfirm.core.db import WorldView
 from mirrorfirm.core.models import (
     AccountingPeriod,
     Action,
     Approval,
     BankReconWorkpaper,
+    BankTransaction,
     ClassificationSummaryWorkpaper,
     CriterionResult,
     InformationRequest,
@@ -28,6 +31,7 @@ from mirrorfirm.core.models import (
     StateAssertion,
     Task,
     TaxTag,
+    Thread,
     Workpaper,
 )
 from mirrorfirm.evaluation.state import (
@@ -98,6 +102,13 @@ class ExpectedJournal(GraderParams):
 
     status: str
     lines: list[JournalLine]
+    date: str | None = None
+    entity_id: str | None = None
+    source: (
+        Literal["opening", "feed_classification", "proposal", "adjustment"] | None
+    ) = None
+    memo: str | None = None
+    provenance_refs: list[str] | None = None
 
 
 class JournalExactParams(GraderParams):
@@ -105,12 +116,38 @@ class JournalExactParams(GraderParams):
 
     expected_statuses: dict[str, str] = Field(default_factory=dict)
     expected_journals: dict[str, ExpectedJournal] = Field(default_factory=dict)
+    forbid_additional_episode_journals: bool = False
+
+
+class ExpectedOutstandingItem(GraderParams):
+    ref: str
+    amount_minor: int
+    reason: str
+    provenance_refs: list[str]
+
+
+class ExpectedUnresolvedItem(GraderParams):
+    description: str
+    amount_minor: int | None
+    provenance_refs: list[str]
+
+
+class ExpectedReconciliation(GraderParams):
+    bank_account_id: str
+    period_id: str
+    statement_end_minor: int
+    ledger_end_minor: int
+    outstanding: list[ExpectedOutstandingItem]
+    unresolved: list[ExpectedUnresolvedItem]
 
 
 class ReconciliationParams(GraderParams):
-    """Optional final reconciliation workpaper identifiers to inspect."""
+    """Exact authored reconciliation state, with legacy ID filtering retained."""
 
     workpaper_ids: list[str] = Field(default_factory=list)
+    expected_reconciliations: list[ExpectedReconciliation] = Field(default_factory=list)
+    expected_transaction_statuses: dict[str, str] = Field(default_factory=dict)
+    forbid_additional_reconciliations: bool = False
 
 
 class UnresolvedParams(GraderParams):
@@ -195,7 +232,7 @@ class ClassificationMapGrader:
         deliverables: Deliverables,
         params: GraderParams,
     ) -> CriterionResult:
-        del initial, actions, provenance, deliverables
+        del initial, deliverables
         assert isinstance(params, ClassificationMapParams)
         journals = final.list(Journal)
         mismatches: list[str] = []
@@ -242,7 +279,7 @@ class JournalExactGrader:
         deliverables: Deliverables,
         params: GraderParams,
     ) -> CriterionResult:
-        del initial, actions, provenance, deliverables
+        del initial, deliverables
         assert isinstance(params, JournalExactParams)
         journals = by_id(final, Journal)
         mismatches = [
@@ -254,8 +291,36 @@ class JournalExactGrader:
             journal = journals.get(journal_id)
             if journal is None:
                 mismatches.append(f"{journal_id} is missing")
-            elif journal.status != expected.status or journal.lines != expected.lines:
+                continue
+            if journal.status != expected.status or journal.lines != expected.lines:
                 mismatches.append(f"{journal_id} does not match the expected journal")
+            if expected.date is not None and journal.date.isoformat() != expected.date:
+                mismatches.append(f"{journal_id} has an unexpected date")
+            if (
+                expected.entity_id is not None
+                and journal.entity_id != expected.entity_id
+            ):
+                mismatches.append(f"{journal_id} has an unexpected entity")
+            if expected.source is not None and journal.source != expected.source:
+                mismatches.append(f"{journal_id} has an unexpected source")
+            if expected.memo is not None and journal.memo != expected.memo:
+                mismatches.append(f"{journal_id} has an unexpected memo")
+            if expected.provenance_refs is not None and provenance.bases_for(
+                journal_id
+            ) != frozenset(expected.provenance_refs):
+                mismatches.append(f"{journal_id} has unexpected provenance")
+        if params.forbid_additional_episode_journals:
+            expected_ids = set(params.expected_journals) | set(params.expected_statuses)
+            created = {
+                mutation.entity_id
+                for action in actions
+                for mutation in action.mutations
+                if mutation.entity_kind == "Journal" and mutation.change == "created"
+            }
+            unexpected = sorted(created - expected_ids)
+            mismatches.extend(
+                f"unsupported episode journal {journal_id}" for journal_id in unexpected
+            )
         return _result(
             self.grader_id,
             not mismatches,
@@ -288,6 +353,46 @@ class ReconTiesGrader:
             and (not params.workpaper_ids or paper.id in params.workpaper_ids)
         ]
         failures = [paper_id for paper_id, body in papers if not _recon_is_honest(body)]
+        expected = list(params.expected_reconciliations)
+        matched_ids: set[str] = set()
+        for expected_body in expected:
+            matches = [
+                (paper_id, body)
+                for paper_id, body in papers
+                if body.bank_account_id == expected_body.bank_account_id
+                and body.period_id == expected_body.period_id
+            ]
+            if len(matches) != 1:
+                failures.append(
+                    f"expected one reconciliation for {expected_body.bank_account_id}/{expected_body.period_id}, found {len(matches)}"
+                )
+                continue
+            paper_id, body = matches[0]
+            matched_ids.add(paper_id)
+            if (
+                body.statement_end_minor != expected_body.statement_end_minor
+                or body.ledger_end_minor != expected_body.ledger_end_minor
+                or _outstanding_keys(body) != _expected_outstanding_keys(expected_body)
+                or _unresolved_keys(body) != _expected_unresolved_keys(expected_body)
+            ):
+                failures.append(
+                    f"{paper_id} does not match the expected reconciliation"
+                )
+        if params.forbid_additional_reconciliations:
+            failures.extend(
+                f"unsupported reconciliation {paper_id}"
+                for paper_id, _ in papers
+                if paper_id not in matched_ids
+            )
+        transactions = by_id(final, BankTransaction)
+        failures.extend(
+            f"transaction {transaction_id} reconciliation status is not {expected_status}"
+            for transaction_id, expected_status in sorted(
+                params.expected_transaction_statuses.items()
+            )
+            if transaction_id not in transactions
+            or transactions[transaction_id].reconciliation_status != expected_status
+        )
         return _result(
             self.grader_id, not failures, failures, [paper_id for paper_id, _ in papers]
         )
@@ -394,7 +499,12 @@ class ProvenanceValidGrader:
             or not index.has_reference(record.basis_ref)
             or _cross_client_reference(index, record.subject_ref, record.basis_ref)
             or not _valid_derived_action_basis(
-                record, actions_by_id, index, params.engagement_id
+                record,
+                actions_by_id,
+                index,
+                params.engagement_id,
+                final,
+                provenance,
             )
         ]
         return _result(self.grader_id, not invalid, invalid, [])
@@ -588,13 +698,44 @@ class MessageEqualsApprovedDraftGrader:
         del initial, actions, provenance, deliverables
         assert isinstance(params, ApprovedMessageParams)
         messages = by_id(final, Message)
-        failures = [
-            message_id
-            for message_id, expected_body in params.expected_bodies.items()
-            if message_id not in messages
-            or messages[message_id].status != "sent"
-            or messages[message_id].body != expected_body
-        ]
+        threads = by_id(final, Thread)
+        requests = final.list(InformationRequest)
+        approvals = final.list(Approval)
+        failures: list[str] = []
+        for message_id, expected_body in params.expected_bodies.items():
+            message = messages.get(message_id)
+            if (
+                message is None
+                or message.status != "sent"
+                or message.body != expected_body
+            ):
+                failures.append(message_id)
+                continue
+            thread = threads.get(message.thread_id)
+            if thread is None:
+                failures.append(message_id)
+                continue
+            request = next(
+                (item for item in requests if item.thread_id == thread.id), None
+            )
+            matching = [
+                approval
+                for approval in approvals
+                if approval.status == "granted"
+                and isinstance(approval.action_descriptor, SendMessageDescriptor)
+                and approval.action_descriptor.draft_message_id == message.id
+                and approval.engagement_id is not None
+                and approval.approved_draft_digest
+                == approved_message_digest(
+                    message,
+                    thread,
+                    request,
+                    client_id=thread.client_id,
+                    engagement_id=approval.engagement_id,
+                )
+            ]
+            if len(matching) != 1:
+                failures.append(message_id)
         return _result(
             self.grader_id, not failures, failures, list(params.expected_bodies)
         )
@@ -650,6 +791,48 @@ def _recon_is_honest(body: BankReconWorkpaper) -> bool:
         body.ledger_end_minor + sum(item.amount_minor for item in body.outstanding)
     )
     return difference == 0 or bool(body.unresolved)
+
+
+def _outstanding_keys(body: BankReconWorkpaper) -> list[tuple[object, ...]]:
+    return sorted(
+        (
+            item.ref,
+            item.amount_minor,
+            item.reason,
+            tuple(item.provenance_refs),
+        )
+        for item in body.outstanding
+    )
+
+
+def _expected_outstanding_keys(
+    expected: ExpectedReconciliation,
+) -> list[tuple[object, ...]]:
+    return sorted(
+        (
+            item.ref,
+            item.amount_minor,
+            item.reason,
+            tuple(item.provenance_refs),
+        )
+        for item in expected.outstanding
+    )
+
+
+def _unresolved_keys(body: BankReconWorkpaper) -> list[tuple[object, ...]]:
+    return sorted(
+        (item.description, item.amount_minor, tuple(item.provenance_refs))
+        for item in body.unresolved
+    )
+
+
+def _expected_unresolved_keys(
+    expected: ExpectedReconciliation,
+) -> list[tuple[object, ...]]:
+    return sorted(
+        (item.description, item.amount_minor, tuple(item.provenance_refs))
+        for item in expected.unresolved
+    )
 
 
 def _episode_provenance_subjects(
@@ -774,8 +957,10 @@ def _valid_derived_action_basis(
     actions_by_id: dict[str, Action],
     index: ClientScopeIndex,
     engagement_id: str | None,
+    final: WorldView,
+    provenance: ProvenanceGraph,
 ) -> bool:
-    """Accept successful same-scope calculation Actions as ``derived_from`` bases."""
+    """Accept only prior, scoped computations that materially support their subject."""
 
     action = actions_by_id.get(record.basis_ref)
     if action is None:
@@ -797,7 +982,101 @@ def _valid_derived_action_basis(
     if engagement_id is not None and index.engagement_for(action.id) != engagement_id:
         return False
     subject_engagement = index.engagement_for(record.subject_ref)
-    return subject_engagement is None or subject_engagement == engagement_id
+    if subject_engagement is not None and subject_engagement != action.engagement_id:
+        return False
+    dependent = _dependent_mutation(record.subject_ref, actions_by_id.values())
+    if dependent is None or action.world_time_after > dependent.world_time_before:
+        return False
+    if not _computation_references_are_scoped(action, index):
+        return False
+    return _computation_supports_subject(action, record, final, provenance)
+
+
+def _dependent_mutation(subject_ref: str, actions: Iterable[Action]) -> Action | None:
+    """Find the committed mutation which first materialised the derived subject."""
+
+    candidates = [
+        action
+        for action in actions
+        if any(mutation.entity_id == subject_ref for mutation in action.mutations)
+    ]
+    return min(candidates, key=lambda action: (action.step, action.id), default=None)
+
+
+def _computation_references_are_scoped(action: Action, index: ClientScopeIndex) -> bool:
+    action_client = index.client_for(action.id)
+    for reference in _json_reference_tokens(
+        (action.input_payload, action.output_payload)
+    ):
+        if reference == action.id or not index.has_reference(reference):
+            continue
+        if index.client_for(reference) != action_client:
+            return False
+        reference_engagement = index.engagement_for(reference)
+        if (
+            reference_engagement is not None
+            and action.engagement_id is not None
+            and reference_engagement != action.engagement_id
+        ):
+            return False
+    return True
+
+
+def _computation_supports_subject(
+    action: Action,
+    record: ProvenanceRecord,
+    final: WorldView,
+    provenance: ProvenanceGraph,
+) -> bool:
+    """Match a computation's typed inputs/outputs to subject content or evidence."""
+
+    subject_payload = _subject_payload(final, record.subject_ref)
+    if subject_payload is None:
+        return False
+    subject_strings = set(_json_strings(subject_payload))
+    supporting_refs = set(provenance.bases_for(record.subject_ref)) - {action.id}
+    action_strings = set(
+        _json_reference_tokens((action.input_payload, action.output_payload))
+    )
+    if action_strings & (subject_strings | supporting_refs):
+        return True
+    # A coincidental numeric result (for example ``calculate("1 + 1")``) is not
+    # evidence.  Calculation provenance must retain a scoped source reference that
+    # connects its typed input/output to the dependent record or its other evidence.
+    return False
+
+
+def _subject_payload(final: WorldView, reference: str) -> object | None:
+    """Resolve a persisted derived subject without treating unknown IDs as evidence."""
+
+    for model_type in (Journal, Workpaper, Message, InformationRequest, Task):
+        record = final.get(model_type, reference)
+        if record is not None:
+            return record.model_dump(mode="json")
+    return None
+
+
+def _json_strings(value: object) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, dict):
+        return tuple(
+            item for nested in value.values() for item in _json_strings(nested)
+        )
+    if isinstance(value, list | tuple):
+        return tuple(item for nested in value for item in _json_strings(nested))
+    return ()
+
+
+def _json_reference_tokens(value: object) -> tuple[str, ...]:
+    """Extract direct IDs and the record prefix of typed field bindings."""
+
+    tokens: set[str] = set()
+    for text in _json_strings(value):
+        tokens.add(text)
+        if "." in text:
+            tokens.add(text.split(".", 1)[0])
+    return tuple(tokens)
 
 
 def _assertion_detail(

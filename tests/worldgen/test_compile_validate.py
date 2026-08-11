@@ -163,6 +163,7 @@ def _world_fixture(root: Path) -> Path:
                     "name": "Fictional Bank",
                     "ledger_account_id": "acc-bank",
                     "currency": "GBP",
+                    "engagement_id": "eng-fixture",
                 }
             ],
             "BankTransaction": [
@@ -218,6 +219,7 @@ def _world_fixture(root: Path) -> Path:
                     ],
                     "proposed_by": "per-agent",
                     "approval_id": None,
+                    "engagement_id": "eng-fixture",
                 }
             ],
             "Document": [
@@ -230,6 +232,7 @@ def _world_fixture(root: Path) -> Path:
                     "client_id": "cli-fixture",
                     "source": "fixture",
                     "received_world_time": "2026-05-20T10:00:00Z",
+                    "engagement_id": "eng-fixture",
                 }
             ],
         },
@@ -373,12 +376,13 @@ def test_structural_validation_checks_irq_and_embedded_references(
             "thread_id": None,
             "items": [{"description": "Missing proof", "refs": ["doc-missing"]}],
             "status": "draft",
+            "engagement_id": "eng-fixture",
         }
     ]
     _write_yaml(world / "records.yaml", records)
 
     report = validate_world(world)
 
-    assert report.gates[-1].gate_id == "invariants"
+    assert report.gates[-1].gate_id == "compile"
     assert report.gates[-1].status == "failed"
-    assert "I-3" in report.gates[-1].detail
+    assert "ownership" in report.gates[-1].detail

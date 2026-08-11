@@ -222,6 +222,10 @@ Prefixes: `wld` world · `prc` practice · `per` person · `cli` client · `ent`
 - **Client** →Entity(1), Engagement(1..n), contacts(1..n); `active|onboarding|disengaged`.
 - **Entity** legal form (pack enum), basis, currency, tax registrations.
 - **Engagement** scope `bookkeeping`; `active|paused|closed`; the episode's work context.
+  Every client-owned operational record is resolved through that context as well as its
+  client.  New records carry an explicit `engagement_id` where their owning engagement
+  is not already inherent; a legacy client-only record is readable only while that
+  client has exactly one active engagement.
 - **AccountingPeriod** `open → in_close → closed → locked`.
 - **Account** code/name/type/tax_dimension/active; from pack CoA + per-entity additions.
 - **Journal** →JournalLine(2..n); `proposed → approved → posted` | `→ rejected`.
@@ -350,10 +354,12 @@ class Journal(BaseModel):
     status: Literal["proposed","approved","posted","rejected"]
     lines: list[JournalLine]                   # >=2; I-1 model_validator
     proposed_by: str | None; approval_id: str | None
+    engagement_id: str | None = None       # explicit owner where client has >1 engagement
 
 # E.8 Bank
 class BankAccount(BaseModel):
     id: str; entity_id: str; name: str; ledger_account_id: str; currency: str
+    engagement_id: str | None = None       # explicit owner where client has >1 engagement
 class BankTransaction(BaseModel):
     id: str; bank_account_id: str; date: date
     amount_minor: int                          # signed; + = money in
@@ -369,8 +375,10 @@ class Document(BaseModel):
     client_id: str | None
     source: Literal["fixture","client_response"]
     received_world_time: AwareDatetime
+    engagement_id: str | None = None       # explicit owner where client has >1 engagement
 class Thread(BaseModel):
     id: str; client_id: str; subject: str; message_ids: list[str]
+    engagement_id: str | None = None       # explicit owner where client has >1 engagement
 class Message(BaseModel):
     id: str; thread_id: str; sender: str; recipients: list[str]
     status: Literal["draft","sent"]
@@ -386,6 +394,7 @@ class InformationRequest(BaseModel):
     id: str; client_id: str; thread_id: str | None
     items: list[IrqItem]                       # {description: str, refs: list[str]}
     status: Literal["draft","sent","responded_partial","responded","closed"]
+    engagement_id: str | None = None
 class Task(BaseModel):
     id: str; engagement_id: str; assignee: str
     title: str; description: str; due: date
@@ -408,7 +417,7 @@ class EntityMatch(BaseModel):                  # all fields optional; AND semant
 class Offset(BaseModel):
     business_days: int = 0; hours: int = 0; minutes: int = 0   # pack calendar
 class Event(BaseModel):
-    id: str
+    id: str; engagement_id: str | None = None
     trigger: AtTime | AfterEntity = Field(discriminator="kind")
     payload: EventPayload
     fired: bool = False
@@ -590,6 +599,11 @@ class Approval(BaseModel):
     action_descriptor: ApprovalActionDescriptor
     rationale: str; provenance_refs: list[str]
     status: Literal["requested","granted","rejected","expired"]
+    engagement_id: str | None = None
+    # Send-message approvals additionally store approved_draft_digest: Sha256 | None
+    # over the full send-relevant draft state (identity, client/engagement, subject,
+    # sender, recipients, body, attachments and IRQ references).  A subsequent draft
+    # change expires that approval; only the exact approved state may auto-execute.
 
 # E.16 Action / Provenance
 class Mutation(BaseModel):

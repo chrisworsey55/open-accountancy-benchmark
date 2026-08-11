@@ -1,0 +1,6 @@
+Marlowe Design Studio Inc
+May 2026 bank statement
+Opening ledger balance: $1,130.00
+Customer check deposit MD-DEP-108: $1,000.00
+Returned check NSF MD-NSF-108: ($1,000.00)
+Statement ending balance: $1,200.00

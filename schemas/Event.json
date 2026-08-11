@@ -391,6 +391,18 @@
   "additionalProperties": false,
   "description": "A scheduled world event.",
   "properties": {
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "fired": {
       "default": false,
       "title": "Fired",

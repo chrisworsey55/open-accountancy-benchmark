@@ -93,6 +93,20 @@ def load_uk_episode_manifests(
     return manifests
 
 
+def load_us_episode_manifests(
+    *, root: str | Path | None = None
+) -> tuple[EpisodeManifest, ...]:
+    """Load the authored EP-US-01 through EP-US-03 catalogue in filename order."""
+
+    manifests = tuple(
+        load_episode_manifest(path)
+        for path in sorted(episode_root("us", root=root).glob("ep-us-*.yaml"))
+    )
+    if not manifests:
+        raise EpisodeAuthoringError("no US episode manifests were found")
+    return manifests
+
+
 def answer_key_path(manifest_path: str | Path) -> Path:
     """Resolve the deliberately adjacent answer-key location for one manifest."""
 

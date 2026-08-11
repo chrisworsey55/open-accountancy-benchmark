@@ -117,6 +117,18 @@
       "title": "Date",
       "type": "string"
     },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "entity_id": {
       "title": "Entity Id",
       "type": "string"

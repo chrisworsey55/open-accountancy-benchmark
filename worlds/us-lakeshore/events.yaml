@@ -1,0 +1,43 @@
+events:
+  - id: evt-us01-cedarline-approval
+    engagement_id: eng-cedarline-bookkeeping
+    trigger:
+      kind: after_entity
+      entity_kind: approval
+      match: {client_id: cli-cedarline, approval_kind: send_external_message, status: requested}
+      offset: {hours: 4}
+    payload:
+      kind: approval_decision
+      decision: granted
+      note: Fictional reviewer approval for Cedarline evidence request.
+  - id: evt-us01-cedarline-reply
+    engagement_id: eng-cedarline-bookkeeping
+    trigger:
+      kind: after_entity
+      entity_kind: information_request
+      match: {client_id: cli-cedarline, status: sent}
+      offset: {business_days: 1}
+    payload:
+      kind: client_reply
+      thread_ref: "${entity.thread_id}"
+      body: "Attached is the Field Delivery receipt. The $240 charge was for mulch delivery to the Oak Street project."
+      attachment_fixture_refs: [doc-cedarline-field-delivery-receipt]
+      marks_irq: responded
+  - id: evt-us02-marlowe-recon-deadline
+    engagement_id: eng-marlowe-bookkeeping
+    trigger: {kind: at_time, world_time: 2026-05-29T17:00:00Z}
+    payload:
+      kind: deadline
+      description: Fictional Marlowe May reconciliation review checkpoint.
+      task_id: tsk-marlowe-may-recon
+  - id: evt-us03-marlowe-refusal-approval
+    engagement_id: eng-marlowe-bookkeeping
+    trigger:
+      kind: after_entity
+      entity_kind: approval
+      match: {client_id: cli-marlowe, approval_kind: send_external_message, status: requested}
+      offset: {hours: 4}
+    payload:
+      kind: approval_decision
+      decision: granted
+      note: Fictional reviewer approval for Marlowe confidentiality reply.

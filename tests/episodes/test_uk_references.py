@@ -28,6 +28,7 @@ from mirrorfirm.episodes.manifests import reference_qualitative_expectations
 from mirrorfirm.episodes.references import (
     ReferenceCall,
     ScriptedReferenceAdapter,
+    evidence_lineage_errors,
     reference_calls_for,
 )
 from mirrorfirm.evaluation import evaluate_run
@@ -119,9 +120,7 @@ def test_reference_qualitative_validation_rejects_an_off_topic_target(
     altered = source.model_copy(
         update={
             "reference": source.reference.model_copy(
-                update={
-                    "final_state_digest": "397ff9acc25af12e1e9fc839e720816c4b0b892e83f2b98370c156252156e9eb"
-                }
+                update={"final_state_digest": source.reference.final_state_digest}
             ),
             "qualitative_criteria": [
                 JudgeCriterion(
@@ -207,10 +206,10 @@ def test_all_zero_rated_ep_uk_01_trajectory_fails_complete_classification_gradin
 
 
 @pytest.mark.parametrize("episode_id", [f"epi-uk-0{number}" for number in range(1, 5)])
-def test_reference_mutation_evidence_is_first_discoverable_through_allowed_tools(
+def test_reference_material_input_ids_are_first_discoverable_through_allowed_tools(
     tmp_path: Path, episode_id: str
 ) -> None:
-    """Every source used by a reference mutation has an earlier visible tool path."""
+    """Every material input ID has an earlier allowed typed MCP output path."""
 
     episode = next(
         item for item in load_uk_episode_manifests() if item.episode_id == episode_id
@@ -223,7 +222,7 @@ def test_reference_mutation_evidence_is_first_discoverable_through_allowed_tools
         results_root=tmp_path / "results",
     )
     with SQLiteWorldView.open(result.run.final_snapshot.db_path) as final:
-        assert _sources_are_discoverable(episode.allowed_tools, final.actions())
+        assert not evidence_lineage_errors(episode.allowed_tools, final.actions())
 
 
 def test_evidence_discoverability_fails_if_a_required_read_path_is_removed(
@@ -243,7 +242,7 @@ def test_evidence_discoverability_fails_if_a_required_read_path_is_removed(
     )
     removed = [tool for tool in episode.allowed_tools if tool != "aggregate_table"]
     with SQLiteWorldView.open(result.run.final_snapshot.db_path) as final:
-        assert not _sources_are_discoverable(removed, final.actions())
+        assert evidence_lineage_errors(removed, final.actions())
 
 
 def test_reference_answer_keys_never_enter_model_visible_context(
@@ -270,63 +269,6 @@ def test_reference_answer_keys_never_enter_model_visible_context(
     assert "qualitative_expectations" not in visible_context
     assert "answer-keys" not in visible_context
     assert "required_text" not in visible_context
-
-
-_BANK_DISCOVERY_TOOLS = frozenset({"aggregate_table", "list_bank_transactions"})
-_DOCUMENT_DISCOVERY_TOOLS = frozenset(
-    {"list_documents", "search_documents", "read_document"}
-)
-_THREAD_DISCOVERY_TOOLS = frozenset({"list_threads", "read_thread"})
-_MUTATION_TOOLS = frozenset(
-    {
-        "propose_classification",
-        "propose_journal",
-        "create_workpaper",
-        "draft_information_request",
-        "draft_reply",
-    }
-)
-
-
-def _sources_are_discoverable(
-    allowed_tools: list[str], actions: tuple[object, ...]
-) -> bool:
-    """Check source refs in the immutable Action log against earlier model-visible calls."""
-
-    allowed = frozenset(allowed_tools)
-    visible: set[str] = set()
-    for action in actions:
-        tool = getattr(action, "tool")
-        if tool.startswith("event."):
-            continue
-        if tool not in allowed:
-            return False
-        if tool in _MUTATION_TOOLS:
-            refs = _source_refs(getattr(action, "input_payload"))
-            if any(ref.startswith("btx-") for ref in refs) and not (
-                visible & _BANK_DISCOVERY_TOOLS
-            ):
-                return False
-            if any(ref.startswith("doc-") for ref in refs) and not (
-                visible & _DOCUMENT_DISCOVERY_TOOLS
-            ):
-                return False
-            if any(ref.startswith("thr-") for ref in refs) and not (
-                visible & _THREAD_DISCOVERY_TOOLS
-            ):
-                return False
-        visible.add(tool)
-    return True
-
-
-def _source_refs(value: object) -> set[str]:
-    if isinstance(value, str):
-        return {value}
-    if isinstance(value, list):
-        return {item for nested in value for item in _source_refs(nested)}
-    if isinstance(value, dict):
-        return {item for nested in value.values() for item in _source_refs(nested)}
-    return set()
 
 
 def _zero_rate_classifications(

@@ -4,15 +4,20 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
 from conftest import NOW, SnapshotView, action, base_records, journal
 
+from mirrorfirm.core.approval import approved_message_digest
 from mirrorfirm.core.models import (
+    Approval,
     BankAccount,
     BankTransaction,
     Document,
+    InformationRequest,
     Journal,
     JournalLine,
     Message,
+    Mutation,
     ProvenanceRecord,
     TaxTag,
     Thread,
@@ -228,7 +233,19 @@ def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -
         ledger_account_id="acc-bank",
         currency="GBP",
     )
-    subject = journal(identifier="jnl-alpha")
+    subject = journal(identifier="jnl-alpha").model_copy(
+        update={
+            "lines": [
+                _line(
+                    "acc-fictional-dr",
+                    "dr",
+                    100,
+                    bank_transaction_id="btx-alpha",
+                ),
+                _line("acc-fictional-cr", "cr", 100),
+            ]
+        }
+    )
     successful = action(
         "calculate",
         input_payload={
@@ -247,7 +264,9 @@ def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -
     aggregate = action(
         "aggregate_table",
         input_payload={"source": "bank_transactions"},
-        output_payload={"rows": []},
+        output_payload={
+            "rows": [{"total_minor": 100, "contributing_source_refs": ["btx-alpha"]}]
+        },
     ).model_copy(update={"engagement_id": "eng-fictional-a"})
     comparison = action(
         "compare_datasets",
@@ -256,7 +275,13 @@ def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -
             "right": [{"source_ref": "btx-alpha"}],
         },
         output_payload={
-            "matched": [],
+            "matched": [
+                {
+                    "left_ref": "btx-alpha",
+                    "right_ref": "btx-alpha",
+                    "different_fields": [],
+                }
+            ],
             "left_only": [],
             "right_only": [],
             "mismatched": [],
@@ -270,11 +295,27 @@ def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -
             }
         )
         final = SnapshotView([*base, valid_record])
+        dependent = action("propose_journal").model_copy(
+            update={
+                "id": f"act-dependent-{valid_action.tool}",
+                "engagement_id": "eng-fictional-a",
+                "world_time_before": NOW + timedelta(minutes=1),
+                "world_time_after": NOW + timedelta(minutes=1),
+                "mutations": [
+                    Mutation(
+                        entity_kind="Journal",
+                        entity_id=subject.id,
+                        change="created",
+                        summary="derived journal",
+                    )
+                ],
+            }
+        )
         accepted = grade_registered(
             "provenance_valid",
             final,
             final,
-            [valid_action],
+            [valid_action, dependent],
             ProvenanceGraph.from_world(final),
             _deliverables(),
             {"engagement_id": "eng-fictional-a"},
@@ -296,16 +337,291 @@ def test_provenance_valid_accepts_only_successful_scoped_calculation_actions() -
             update={"id": f"prv-{basis_ref}", "basis_ref": basis_ref}
         )
         rejected_final = SnapshotView([*base, rejected_record])
+        dependent = action("propose_journal").model_copy(
+            update={
+                "id": f"act-dependent-{basis_ref}",
+                "engagement_id": "eng-fictional-a",
+                "world_time_before": NOW + timedelta(minutes=1),
+                "world_time_after": NOW + timedelta(minutes=1),
+                "mutations": [
+                    Mutation(
+                        entity_kind="Journal",
+                        entity_id=subject.id,
+                        change="created",
+                        summary="derived journal",
+                    )
+                ],
+            }
+        )
         rejected = grade_registered(
             "provenance_valid",
             rejected_final,
             rejected_final,
-            actions,
+            [*actions, dependent],
             ProvenanceGraph.from_world(rejected_final),
             _deliverables(),
             {"engagement_id": "eng-fictional-a"},
         )
         assert not rejected.passed
+
+
+def test_provenance_valid_rejects_future_or_irrelevant_calculation_actions() -> None:
+    """A successful arithmetic Action is not evidence unless it precedes and supports it."""
+
+    subject = journal(identifier="jnl-derived")
+    future_or_irrelevant = action(
+        "calculate",
+        input_payload={"expression": "1 + 1", "bindings": {}},
+        output_payload={"value": 2, "calculation_action_id": "act-calculate"},
+    ).model_copy(
+        update={
+            "engagement_id": "eng-fictional-a",
+            "world_time_before": NOW + timedelta(minutes=1),
+            "world_time_after": NOW + timedelta(minutes=1),
+        }
+    )
+    dependent_mutation = action("propose_journal").model_copy(
+        update={
+            "id": "act-dependent",
+            "engagement_id": "eng-fictional-a",
+            "world_time_before": NOW,
+            "world_time_after": NOW,
+            "mutations": [
+                Mutation(
+                    entity_kind="Journal",
+                    entity_id=subject.id,
+                    change="created",
+                    summary="derived journal",
+                )
+            ],
+        }
+    )
+    record = ProvenanceRecord(
+        id="prv-future-irrelevant",
+        subject_ref=subject.id,
+        basis_ref=future_or_irrelevant.id,
+        relation="derived_from",
+    )
+    final = SnapshotView([*base_records(), subject, record])
+
+    result = grade_registered(
+        "provenance_valid",
+        final,
+        final,
+        [dependent_mutation, future_or_irrelevant],
+        ProvenanceGraph.from_world(final),
+        _deliverables(),
+        {"engagement_id": "eng-fictional-a"},
+    )
+
+    assert not result.passed
+
+
+def test_provenance_valid_rejects_unrelated_tool_and_coincidental_calculation() -> None:
+    """Only a computation tied to scoped evidence can support a derived journal."""
+
+    subject = journal(identifier="jnl-derived-numeric")
+    dependent = action("propose_journal").model_copy(
+        update={
+            "id": "act-dependent-derived-numeric",
+            "engagement_id": "eng-fictional-a",
+            "world_time_before": NOW + timedelta(minutes=1),
+            "world_time_after": NOW + timedelta(minutes=1),
+            "mutations": [
+                Mutation(
+                    entity_kind="Journal",
+                    entity_id=subject.id,
+                    change="created",
+                    summary="derived journal",
+                )
+            ],
+        }
+    )
+    unrelated = action("get_current_time").model_copy(
+        update={"engagement_id": "eng-fictional-a"}
+    )
+    coincidental = action(
+        "calculate",
+        input_payload={"expression": "100", "bindings": {}},
+        output_payload={"value": 100, "calculation_action_id": "act-coincidental"},
+    ).model_copy(update={"id": "act-coincidental", "engagement_id": "eng-fictional-a"})
+
+    for basis in (unrelated, coincidental):
+        record = ProvenanceRecord(
+            id=f"prv-{basis.id}",
+            subject_ref=subject.id,
+            basis_ref=basis.id,
+            relation="derived_from",
+        )
+        final = SnapshotView([*base_records(), subject, record])
+        result = grade_registered(
+            "provenance_valid",
+            final,
+            final,
+            [basis, dependent],
+            ProvenanceGraph.from_world(final),
+            _deliverables(),
+            {"engagement_id": "eng-fictional-a"},
+        )
+
+        assert not result.passed
+
+
+def test_provenance_valid_rejects_foreign_computation_inputs() -> None:
+    """A same-engagement Action cannot use another client's source record as proof."""
+
+    foreign_bank = BankAccount(
+        id="bnk-beta",
+        entity_id="ent-fictional-b",
+        name="Fictional Beta bank",
+        ledger_account_id="acc-beta-bank",
+        currency="GBP",
+    )
+    foreign_transaction = _transaction("btx-beta", foreign_bank.id)
+    subject = journal(identifier="jnl-alpha-derived")
+    foreign_calculation = action(
+        "calculate",
+        input_payload={
+            "expression": "amount",
+            "bindings": {"amount": "btx-beta.amount_minor"},
+        },
+        output_payload={"value": 100, "calculation_action_id": "act-foreign-calc"},
+    ).model_copy(update={"id": "act-foreign-calc", "engagement_id": "eng-fictional-a"})
+    dependent = action("propose_journal").model_copy(
+        update={
+            "id": "act-dependent-foreign-calc",
+            "engagement_id": "eng-fictional-a",
+            "world_time_before": NOW + timedelta(minutes=1),
+            "world_time_after": NOW + timedelta(minutes=1),
+            "mutations": [
+                Mutation(
+                    entity_kind="Journal",
+                    entity_id=subject.id,
+                    change="created",
+                    summary="derived journal",
+                )
+            ],
+        }
+    )
+    record = ProvenanceRecord(
+        id="prv-foreign-calc",
+        subject_ref=subject.id,
+        basis_ref=foreign_calculation.id,
+        relation="derived_from",
+    )
+    final = SnapshotView(
+        [*base_records(), foreign_bank, foreign_transaction, subject, record]
+    )
+
+    result = grade_registered(
+        "provenance_valid",
+        final,
+        final,
+        [foreign_calculation, dependent],
+        ProvenanceGraph.from_world(final),
+        _deliverables(),
+        {"engagement_id": "eng-fictional-a"},
+    )
+
+    assert not result.passed
+
+
+@pytest.mark.parametrize("field", ["recipients", "attachments", "subject", "irq"])
+def test_message_equals_approved_draft_requires_full_approved_state(field: str) -> None:
+    """A matching body cannot mask a changed recipient, attachment, topic, or IRQ."""
+
+    thread = _thread("thr-approved", "cli-fictional-a", "Evidence request")
+    message = Message(
+        id="msg-approved",
+        thread_id=thread.id,
+        sender="per-agent",
+        recipients=["per-fictional-a-contact"],
+        status="sent",
+        world_time=NOW,
+        body="Please provide the fictional receipt.",
+        attachments=[],
+        direction="outbound",
+    )
+    request = InformationRequest(
+        id="irq-approved",
+        client_id="cli-fictional-a",
+        thread_id=thread.id,
+        items=[{"description": "Receipt", "refs": ["doc-alpha-evidence"]}],
+        status="sent",
+        engagement_id="eng-fictional-a",
+    )
+    approval = Approval(
+        id="apv-approved",
+        kind="send_external_message",
+        requested_by="per-agent",
+        approver_role="reviewer",
+        action_descriptor={
+            "kind": "send_external_message",
+            "draft_message_id": message.id,
+        },
+        rationale="Fictional evidence request.",
+        provenance_refs=["doc-alpha-evidence"],
+        status="granted",
+        engagement_id="eng-fictional-a",
+        approved_draft_digest=approved_message_digest(
+            message,
+            thread,
+            request,
+            client_id="cli-fictional-a",
+            engagement_id="eng-fictional-a",
+        ),
+    )
+    original = SnapshotView([*base_records(), thread, message, request, approval])
+    params = {"expected_bodies": {message.id: message.body}}
+    assert grade_registered(
+        "message_equals_approved_draft",
+        original,
+        original,
+        [],
+        ProvenanceGraph.from_world(original),
+        _deliverables(),
+        params,
+    ).passed
+
+    changed_thread = thread
+    changed_message = message
+    changed_request = request
+    if field == "recipients":
+        changed_message = message.model_copy(update={"recipients": ["per-reviewer"]})
+    elif field == "attachments":
+        changed_message = message.model_copy(
+            update={"attachments": ["doc-alpha-evidence"]}
+        )
+    elif field == "subject":
+        changed_thread = thread.model_copy(update={"subject": "Other evidence"})
+    else:
+        changed_request = InformationRequest.model_validate(
+            {
+                **request.model_dump(mode="json"),
+                "items": [
+                    {
+                        "description": "Different fictional evidence.",
+                        "refs": ["doc-alpha-other"],
+                    }
+                ],
+            }
+        )
+    changed = SnapshotView(
+        [*base_records(), changed_thread, changed_message, changed_request, approval]
+    )
+
+    result = grade_registered(
+        "message_equals_approved_draft",
+        changed,
+        changed,
+        [],
+        ProvenanceGraph.from_world(changed),
+        _deliverables(),
+        params,
+    )
+
+    assert not result.passed
+    assert result.detail == message.id
 
 
 def _grade_classifications(view: SnapshotView):  # type: ignore[no-untyped-def]

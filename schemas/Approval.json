@@ -143,6 +143,19 @@
       ],
       "title": "Action Descriptor"
     },
+    "approved_draft_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approved Draft Digest"
+    },
     "approver_role": {
       "enum": [
         "client_contact",
@@ -155,6 +168,18 @@
       ],
       "title": "Approver Role",
       "type": "string"
+    },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
     },
     "id": {
       "title": "Id",

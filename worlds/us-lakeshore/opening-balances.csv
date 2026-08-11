@@ -1,0 +1,5 @@
+entity_id,account_code,amount_minor
+ent-cedarline,1000,250000
+ent-cedarline,3000,-250000
+ent-marlowe,1000,113000
+ent-marlowe,3000,-113000
