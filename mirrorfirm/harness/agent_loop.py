@@ -23,6 +23,9 @@ class ToolExecutor(Protocol):
     def execute(self, name: str, arguments: str) -> str:
         """Execute one tool call and return a serialized result."""
 
+    def reserve_tool_calls(self, count: int) -> bool:
+        """Atomically charge an entire provider response before executing any call."""
+
     def get_metrics(self) -> dict[str, object]:
         """Return executor metrics for reporting."""
 
@@ -73,6 +76,7 @@ def run_agent(
     last_response: ModelResponse | None = None
     context_overflow = False
     token_budget_exhausted = False
+    batch_budget_exhausted = False
 
     transcript_file: TextIO | None = None
     if transcript_path:
@@ -110,6 +114,10 @@ def run_agent(
                 break
 
             if not response.tool_calls:
+                break
+
+            if not tool_executor.reserve_tool_calls(len(response.tool_calls)):
+                batch_budget_exhausted = True
                 break
 
             tool_results: list[tuple[str, str]] = []
@@ -155,6 +163,7 @@ def run_agent(
         "finished_cleanly": finished_cleanly,
         "context_overflow": context_overflow,
         "token_budget_exhausted": token_budget_exhausted,
+        "batch_budget_exhausted": batch_budget_exhausted,
         "step_budget_exhausted": step_budget_exhausted,
         "world_time_budget_exhausted": world_time_budget_exhausted,
         "episode_finished": episode_finished,

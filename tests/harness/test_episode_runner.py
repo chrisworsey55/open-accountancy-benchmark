@@ -253,6 +253,41 @@ def test_runner_enforces_step_and_token_budgets_without_implicit_finish(
         assert final_view.actions() == ()
 
 
+def test_runner_reserves_every_call_in_one_provider_batch_before_execution(
+    tmp_path: Path,
+) -> None:
+    """A forbidden call cannot make a later same-response finish call free."""
+
+    compiled = compile_world(WORLD, tmp_path / "compiled.db")
+    runner = EpisodeRunner(
+        _episode(max_steps=1, max_tokens=20),
+        compiled.database_path,
+        world_root=WORLD,
+        results_root=tmp_path / "results",
+    )
+    result = runner.run(
+        ScriptedAdapter(
+            [
+                _response(
+                    ToolCall("forbidden", "get_context", "{}"),
+                    ToolCall("finish", "finish_episode", FINISH_ARGUMENTS),
+                    tokens=1,
+                )
+            ]
+        ),
+        run_id="run-r000001",
+    )
+
+    assert result.completed is False
+    assert result.agent_result["step_budget_exhausted"] is True
+    assert result.agent_result["episode_finished"] is False
+    metrics = result.agent_result["tool_metrics"]
+    assert metrics["tool_calls"] == 0
+    assert metrics["requested_tool_calls"] == 2
+    with SQLiteWorldView.open(result.final_snapshot.db_path) as final_view:
+        assert final_view.actions() == ()
+
+
 def test_runner_does_not_treat_a_provider_stop_as_episode_completion(
     tmp_path: Path,
 ) -> None:

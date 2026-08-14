@@ -101,9 +101,9 @@ def score_evaluation(
 
 
 def aggregate_results(
-    results: Sequence[ScoredEvaluation | EvaluationResult], *, k: int | None = None
+    results: Sequence[object], *, k: int | None = None
 ) -> ReliabilityAggregate:
-    """Aggregate homogeneous episode/model runs using the first ``k`` trajectories."""
+    """Aggregate only native Mirror Firm evaluations using the first ``k`` runs."""
 
     if not results:
         raise ValueError("at least one evaluation result is required")
@@ -112,14 +112,32 @@ def aggregate_results(
             "k must be positive and no greater than the completed run count"
         )
     selected = list(results if k is None else results[:k])
-    overall = [result.overall for result in selected]
-    all_pass = [result.all_pass for result in selected]
+    native_results = [_require_native_aggregation_result(result) for result in selected]
+    overall = [result.overall for result in native_results]
+    all_pass = [result.all_pass for result in native_results]
     return ReliabilityAggregate(
         run_count=len(selected),
         mean_overall=sum(overall) / len(overall),
         all_pass_rate=sum(all_pass) / len(all_pass),
         pass_at_k=int(any(all_pass)),
         pass_to_k=int(all(all_pass)),
+    )
+
+
+def _require_native_aggregation_result(
+    result: object,
+) -> ScoredEvaluation | EvaluationResult:
+    """Fail closed before a contaminated or untyped result reaches headline metrics."""
+
+    if isinstance(result, (ScoredEvaluation, EvaluationResult)):
+        return result
+    contamination = getattr(result, "contamination", None)
+    if contamination == "public-reference-answers":
+        raise ValueError(
+            "contaminated external APEX results cannot enter native aggregation"
+        )
+    raise ValueError(
+        "native aggregation accepts only verified Mirror Firm EvaluationResult values"
     )
 
 

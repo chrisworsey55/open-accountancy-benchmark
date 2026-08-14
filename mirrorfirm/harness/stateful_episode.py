@@ -49,6 +49,8 @@ class StatefulEpisodeAdapter:
         self._world_started_at = engine.now
         self._world_deadline = self._world_started_at + timedelta(days=max_world_days)
         self._step_count = 0
+        self._reserved_steps = 0
+        self._requested_tool_calls = 0
         self._tool_errors = 0
         self._step_budget_exhausted = False
         self._world_time_budget_exhausted = False
@@ -97,7 +99,28 @@ class StatefulEpisodeAdapter:
     def budget_exhausted(self) -> bool:
         """Whether execution hit an episode step or world-time limit."""
 
-        return self._step_budget_exhausted or self._world_time_budget_exhausted
+        return (
+            self._step_budget_exhausted
+            or self._world_time_budget_exhausted
+            or (
+                self._step_count >= self._max_steps
+                and self._reserved_steps == 0
+                and not self.is_finished
+            )
+        )
+
+    def reserve_tool_calls(self, count: int) -> bool:
+        """Charge a complete response batch before any call can alter the world."""
+
+        if count <= 0:
+            return count == 0
+        self._requested_tool_calls += count
+        if self.budget_exhausted or self._step_count + count > self._max_steps:
+            self._step_budget_exhausted = True
+            return False
+        self._step_count += count
+        self._reserved_steps += count
+        return True
 
     @property
     def finish_summary(self) -> dict[str, object] | None:
@@ -108,15 +131,15 @@ class StatefulEpisodeAdapter:
     def execute(self, name: str, arguments: str) -> str:
         """Route one model tool request through MCP and return serialized MCP output."""
 
-        if self.budget_exhausted:
+        if self._reserved_steps == 0 and self.budget_exhausted:
             return self._error_result(
                 _BUDGET_ERROR_CODE, "episode budget has already been exhausted"
             )
-        if self._step_count >= self._max_steps:
-            self._step_budget_exhausted = True
+        if self._reserved_steps == 0 and not self.reserve_tool_calls(1):
             return self._error_result(
                 _BUDGET_ERROR_CODE, "episode step budget has been exhausted"
             )
+        self._reserved_steps -= 1
         if name not in self._allowed_tools:
             self._tool_errors += 1
             return self._error_result(
@@ -141,7 +164,6 @@ class StatefulEpisodeAdapter:
                 _BUDGET_ERROR_CODE, "episode world-time budget would be exceeded"
             )
 
-        self._step_count += 1
         response = self._server.call_tool(name, typed_arguments)
         if response.get("isError") is True:
             self._tool_errors += 1
@@ -157,8 +179,9 @@ class StatefulEpisodeAdapter:
         elapsed = self.engine.now - self._world_started_at
         return {
             "tool_calls": self._step_count,
+            "requested_tool_calls": self._requested_tool_calls,
             "tool_errors": self._tool_errors,
-            "step_budget_exhausted": self._step_budget_exhausted,
+            "step_budget_exhausted": self.budget_exhausted,
             "world_time_budget_exhausted": self._world_time_budget_exhausted,
             "world_days_elapsed": elapsed.total_seconds() / 86_400,
         }

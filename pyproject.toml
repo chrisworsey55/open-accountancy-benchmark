@@ -19,6 +19,9 @@ dependencies = [
   "pyyaml>=6.0.2",
 ]
 
+[project.scripts]
+mirror-firm = "mirrorfirm.cli:main"
+
 [dependency-groups]
 dev = [
   "mypy>=1.13.0",

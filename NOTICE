@@ -16,3 +16,7 @@ Derived files:
 
 No code or content from Mercor Archipelago, Thrive private systems, or Harvey LAB
 legal tasks, task schemas, skills, sandbox, or tool executor is included.
+
+APEX-Accounting support downloads Mercor's CC BY 4.0 public development pack on demand
+at a user-pinned Hugging Face revision. No APEX source content, including public gold
+answers, is vendored in this repository; see docs/apex-compat.md.
