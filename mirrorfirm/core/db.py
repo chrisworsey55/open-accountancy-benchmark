@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
 import shutil
 import sqlite3
+import stat
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Final, Iterator, Literal, Protocol, Self, TypeVar, cast
+from typing import Callable, Final, Iterator, Literal, Protocol, Self, TypeVar, cast
 
 from .digest import logical_state_digest
 from .models import (
@@ -97,6 +99,26 @@ class SQLiteWorldView:
             connection.close()
             raise
         return cls(database_path, connection)
+
+    @classmethod
+    def from_serialized(cls, data: bytes) -> Self:
+        """Open a read-only view from already-retained SQLite bytes.
+
+        ``WorldStore`` uses this instead of reopening its mutable database pathname
+        while a secured episode run is live.  The method deliberately has no file
+        system dependency.
+        """
+
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+        try:
+            connection.deserialize(data)
+            _verify_schema(connection)
+            connection.execute("PRAGMA query_only = ON")
+        except BaseException:
+            connection.close()
+            raise
+        return cls(Path(":memory:"), connection)
 
     def close(self) -> None:
         """Close this read-only database handle."""
@@ -271,7 +293,7 @@ class WorldStore:
         """Open a separate read-only query view over the committed database state."""
 
         self._commit_if_autocommit()
-        return SQLiteWorldView.open(self._path)
+        return SQLiteWorldView.from_serialized(self._connection.serialize())
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
@@ -361,6 +383,85 @@ class WorldStore:
             episode_run_id=episode_run_id,
             phase=phase,
             db_path=str(destination_path),
+            state_digest=snapshot_digest,
+        )
+
+    def snapshot_to_directory_fd(
+        self,
+        destination_directory_fd: int,
+        destination_name: str,
+        *,
+        displayed_path: str | Path,
+        snapshot_id: str,
+        episode_run_id: str,
+        phase: Literal["initial", "final"],
+        transactional: bool = False,
+        verify_destination: Callable[[], None] | None = None,
+    ) -> StateSnapshot:
+        """Materialise a snapshot through a retained directory descriptor only.
+
+        The database bytes are serialized from the active connection and written via
+        ``openat`` semantics.  No mutable destination pathname is opened or followed.
+        ``displayed_path`` is metadata for later artifact loading, not a write target.
+        """
+
+        if not destination_name or Path(destination_name).name != destination_name:
+            raise ValueError("snapshot destination name is unsafe")
+        if transactional and self._transaction_depth == 0:
+            raise ValueError("transactional snapshots require an active transaction")
+        try:
+            metadata = os.fstat(destination_directory_fd)
+        except OSError as error:
+            raise ValueError("snapshot destination is unsafe") from error
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise ValueError("snapshot destination is unsafe")
+        if verify_destination is not None:
+            verify_destination()
+        source_digest = self.state_digest()
+        if not transactional:
+            self._connection.commit()
+        data = self._connection.serialize()
+        descriptor: int | None = None
+        created = False
+        try:
+            descriptor = os.open(
+                destination_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=destination_directory_fd,
+            )
+            created = True
+            destination_metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(destination_metadata.st_mode):
+                raise OSError("snapshot destination is not regular")
+            written = 0
+            while written < len(data):
+                written += os.write(descriptor, data[written:])
+            os.fsync(descriptor)
+        except OSError as error:
+            raise RuntimeError("snapshot destination could not be created") from error
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+        try:
+            with SQLiteWorldView.from_serialized(data) as snapshot_view:
+                snapshot_digest = snapshot_view.state_digest()
+            if snapshot_digest != source_digest:
+                raise RuntimeError("snapshot digest differs from its source database")
+            if verify_destination is not None:
+                verify_destination()
+        except BaseException:
+            if created:
+                try:
+                    os.unlink(destination_name, dir_fd=destination_directory_fd)
+                except FileNotFoundError:
+                    pass
+            raise
+        return StateSnapshot(
+            id=snapshot_id,
+            episode_run_id=episode_run_id,
+            phase=phase,
+            db_path=str(displayed_path),
             state_digest=snapshot_digest,
         )
 

@@ -5,7 +5,6 @@
 # executor routes only declared tools through local MCP and makes finish explicit.
 """Provider-agnostic bounded loop for a stateful Mirror Firm episode."""
 
-import json
 import time
 from pathlib import Path
 from typing import Protocol, TextIO
@@ -14,6 +13,11 @@ from mirrorfirm.harness.adapters.base import (
     ModelAdapter,
     ModelResponse,
     ProviderPayload,
+)
+from mirrorfirm.security import (
+    SanitizationError,
+    canonical_sanitized_json,
+    sanitize_for_persistence,
 )
 
 
@@ -50,6 +54,7 @@ def run_agent(
     tools: list[ProviderPayload],
     max_turns: int = 200,
     transcript_path: str | None = None,
+    transcript_file: TextIO | None = None,
     max_tokens: int | None = None,
     require_finish_episode: bool = False,
 ) -> dict[str, object]:
@@ -78,11 +83,14 @@ def run_agent(
     token_budget_exhausted = False
     batch_budget_exhausted = False
 
-    transcript_file: TextIO | None = None
+    if transcript_path is not None and transcript_file is not None:
+        raise ValueError("provide either transcript_path or transcript_file, not both")
+    owns_transcript = False
     if transcript_path:
         path = Path(transcript_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         transcript_file = path.open("w", encoding="utf-8")
+        owns_transcript = True
 
     try:
         for turn in range(max_turns):
@@ -138,7 +146,7 @@ def run_agent(
             if tool_executor.budget_exhausted or tool_executor.is_finished:
                 break
     finally:
-        if transcript_file:
+        if transcript_file and owns_transcript:
             transcript_file.close()
 
     metrics = tool_executor.get_metrics()
@@ -154,8 +162,14 @@ def run_agent(
             episode_finished if require_finish_episode else not last_response.tool_calls
         )
     )
+    try:
+        persisted_messages = sanitize_for_persistence(messages)
+    except SanitizationError as error:
+        raise ValueError("provider transcript cannot be sanitized safely") from error
+    if not isinstance(persisted_messages, list):  # pragma: no cover - defensive
+        raise ValueError("provider transcript cannot be sanitized safely")
     return {
-        "messages": messages,
+        "messages": persisted_messages,
         "turn_count": turn_count,
         "input_tokens": total_input_tokens,
         "output_tokens": total_output_tokens,
@@ -176,7 +190,7 @@ def _log_turn(file: TextIO, turn: int, response: ModelResponse) -> None:
     """Append a model turn to a transcript JSONL file."""
 
     file.write(
-        json.dumps(
+        canonical_sanitized_json(
             {
                 "turn": turn,
                 "role": "assistant",
@@ -189,8 +203,7 @@ def _log_turn(file: TextIO, turn: int, response: ModelResponse) -> None:
                 "input_tokens": response.input_tokens,
                 "output_tokens": response.output_tokens,
             }
-        )
-        + "\n"
+        ).decode("utf-8")
     )
     file.flush()
 
@@ -205,7 +218,7 @@ def _log_tool(
     """Append a tool result to a transcript JSONL file."""
 
     file.write(
-        json.dumps(
+        canonical_sanitized_json(
             {
                 "turn": turn,
                 "role": "tool",
@@ -213,7 +226,6 @@ def _log_tool(
                 "arguments": arguments,
                 "result_preview": result[:1000],
             }
-        )
-        + "\n"
+        ).decode("utf-8")
     )
     file.flush()

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +11,12 @@ from mirrorfirm.core.models import EpisodeManifest, StateSnapshot
 from mirrorfirm.harness.adapters.base import ModelAdapter
 from mirrorfirm.harness.agent_loop import run_agent
 from mirrorfirm.harness.stateful_episode import StatefulEpisodeAdapter
+from mirrorfirm.reporting.artifacts import (
+    ResultArtifactError,
+    SecureExecutionDirectory,
+    SecureExecutionFile,
+    open_secure_execution_directory,
+)
 from mirrorfirm.tools import WorldToolEngine
 
 _SYSTEM_PROMPT = (
@@ -47,60 +53,159 @@ class EpisodeRunner:
         self.episode = episode
         self.compiled_database_path = Path(compiled_database_path).resolve()
         self.world_root = Path(world_root).resolve()
-        self.results_root = Path(results_root).resolve()
+        # Do not resolve a caller-controlled output path: resolving would silently
+        # turn a symlinked requested root into its attacker-selected target.
+        self.results_root = Path(results_root).absolute()
         if not self.compiled_database_path.is_file():
             raise FileNotFoundError(self.compiled_database_path)
         if not self.world_root.is_dir():
             raise NotADirectoryError(self.world_root)
         self._validate_budget()
+        self._results_directory = open_secure_execution_directory(self.results_root)
 
     def run(self, adapter: ModelAdapter, *, run_id: str) -> EpisodeRunResult:
         """Run an isolated copy of the world and materialize both state snapshots."""
 
-        run_directory = self._prepare_run_directory(run_id)
-        database_path = run_directory / "world.db"
-        shutil.copy2(self.compiled_database_path, database_path)
+        self._results_directory.verify_current()
+        secure_run_directory = self._prepare_run_directory(run_id)
+        run_directory = secure_run_directory.path
+        world_file: SecureExecutionFile | None = None
+        initial_file: SecureExecutionFile | None = None
+        final_file: SecureExecutionFile | None = None
+        transcript_file: SecureExecutionFile | None = None
+        terminal_engine_snapshot: SecureExecutionFile | None = None
+        engine_snapshots: SecureExecutionDirectory | None = None
+        try:
+            self._results_directory.verify_child_directory(run_id, secure_run_directory)
+            world_file = secure_run_directory.create_file_from(
+                "world.db", self.compiled_database_path
+            )
+            database_path = world_file.path
+            world_file.verify_current()
+            secure_run_directory.verify_current()
+            with WorldStore.open(database_path) as store:
+                self._validate_world(store)
+                world_file.verify_current()
+                secure_run_directory.verify_current()
+                initial_snapshot = store.snapshot_to_directory_fd(
+                    secure_run_directory.descriptor,
+                    "initial.db",
+                    displayed_path=run_directory / "initial.db",
+                    snapshot_id=f"snp-{run_id}-initial",
+                    episode_run_id=run_id,
+                    phase="initial",
+                    verify_destination=secure_run_directory.verify_current,
+                )
+                initial_file = secure_run_directory.retain_regular_file("initial.db")
+                engine_snapshots = secure_run_directory.create_child("engine-snapshots")
+                try:
 
-        with WorldStore.open(database_path) as store:
-            self._validate_world(store)
-            initial_snapshot = store.snapshot(
-                run_directory / "initial.db",
-                snapshot_id=f"snp-{run_id}-initial",
-                episode_run_id=run_id,
-                phase="initial",
-            )
-            engine = WorldToolEngine(
-                store,
-                world_root=self.world_root,
-                actor_id=self.episode.agent_person_id,
-                engagement_id=self.episode.engagement_id,
-                episode_run_id=run_id,
-                snapshot_dir=run_directory / "engine-snapshots",
-                active_event_ids=self.episode.event_ids,
-            )
-            tool_executor = StatefulEpisodeAdapter(
-                engine,
-                allowed_tools=frozenset(self.episode.allowed_tools),
-                max_steps=self.episode.budget.max_steps,
-                max_world_days=self.episode.budget.max_world_days,
-            )
-            agent_result = run_agent(
-                adapter,
-                _SYSTEM_PROMPT,
-                self.episode.instruction,
-                tool_executor,
-                tool_executor.provider_tools,
-                max_turns=self.episode.budget.max_steps + 1,
-                max_tokens=self.episode.budget.max_tokens,
-                require_finish_episode=True,
-                transcript_path=str(run_directory / "transcript.jsonl"),
-            )
-            final_snapshot = store.snapshot(
-                run_directory / "final.db",
-                snapshot_id=f"snp-{run_id}-final",
-                episode_run_id=run_id,
-                phase="final",
-            )
+                    def verify_engine_snapshot_boundary() -> None:
+                        self._results_directory.verify_child_directory(
+                            run_id, secure_run_directory
+                        )
+                        secure_run_directory.verify_child_directory(
+                            "engine-snapshots", engine_snapshots
+                        )
+                        world_file.verify_current()
+
+                    def write_terminal_snapshot(snapshot_id: str) -> StateSnapshot:
+                        nonlocal terminal_engine_snapshot
+                        verify_engine_snapshot_boundary()
+                        snapshot = store.snapshot_to_directory_fd(
+                            engine_snapshots.descriptor,
+                            f"{snapshot_id}.db",
+                            displayed_path=engine_snapshots.path / f"{snapshot_id}.db",
+                            snapshot_id=snapshot_id,
+                            episode_run_id=run_id,
+                            phase="final",
+                            transactional=True,
+                            verify_destination=verify_engine_snapshot_boundary,
+                        )
+                        terminal_engine_snapshot = engine_snapshots.retain_regular_file(
+                            f"{snapshot_id}.db"
+                        )
+                        terminal_engine_snapshot.verify_current()
+                        verify_engine_snapshot_boundary()
+                        return snapshot
+
+                    engine = WorldToolEngine(
+                        store,
+                        world_root=self.world_root,
+                        actor_id=self.episode.agent_person_id,
+                        engagement_id=self.episode.engagement_id,
+                        episode_run_id=run_id,
+                        snapshot_writer=write_terminal_snapshot,
+                        active_event_ids=self.episode.event_ids,
+                    )
+                    tool_executor = StatefulEpisodeAdapter(
+                        engine,
+                        allowed_tools=frozenset(self.episode.allowed_tools),
+                        max_steps=self.episode.budget.max_steps,
+                        max_world_days=self.episode.budget.max_world_days,
+                    )
+                    transcript_file = secure_run_directory.create_empty_file(
+                        "transcript.jsonl"
+                    )
+                    transcript_writer = transcript_file.open_text_writer()
+                    try:
+                        verify_engine_snapshot_boundary()
+                        agent_result = run_agent(
+                            adapter,
+                            _SYSTEM_PROMPT,
+                            self.episode.instruction,
+                            tool_executor,
+                            tool_executor.provider_tools,
+                            max_turns=self.episode.budget.max_steps + 1,
+                            max_tokens=self.episode.budget.max_tokens,
+                            require_finish_episode=True,
+                            transcript_file=transcript_writer,
+                        )
+                    finally:
+                        transcript_writer.close()
+                    transcript_file.verify_current()
+                    verify_engine_snapshot_boundary()
+                    final_snapshot = store.snapshot_to_directory_fd(
+                        secure_run_directory.descriptor,
+                        "final.db",
+                        displayed_path=run_directory / "final.db",
+                        snapshot_id=self._final_snapshot_id(store, agent_result)
+                        if tool_executor.is_finished
+                        else f"snp-{run_id}-final",
+                        episode_run_id=run_id,
+                        phase="final",
+                        verify_destination=verify_engine_snapshot_boundary,
+                    )
+                    final_file = secure_run_directory.retain_regular_file("final.db")
+                    final_file.verify_current()
+                    if initial_file is not None:
+                        initial_file.verify_current()
+                    if terminal_engine_snapshot is not None:
+                        terminal_engine_snapshot.verify_current()
+                    verify_engine_snapshot_boundary()
+                finally:
+                    if engine_snapshots is not None:
+                        engine_snapshots.close()
+        except BaseException as error:
+            # Retained no-follow descriptors ensure cleanup cannot follow an attacker
+            # replacement that happened after initial output-root validation.
+            secure_run_directory.clean_partial_contents()
+            try:
+                secure_run_directory.verify_current()
+            except ResultArtifactError as integrity_error:
+                raise integrity_error from error
+            raise
+        finally:
+            for file in (
+                terminal_engine_snapshot,
+                transcript_file,
+                final_file,
+                initial_file,
+                world_file,
+            ):
+                if file is not None:
+                    file.close()
+            secure_run_directory.close()
 
         return EpisodeRunResult(
             episode_id=self.episode.episode_id,
@@ -123,14 +228,34 @@ class EpisodeRunner:
         if "finish_episode" not in self.episode.allowed_tools:
             raise ValueError("stateful episodes must allow finish_episode")
 
-    def _prepare_run_directory(self, run_id: str) -> Path:
+    def _prepare_run_directory(self, run_id: str) -> SecureExecutionDirectory:
         if not run_id or Path(run_id).name != run_id:
             raise ValueError("run_id must be a single path component")
-        run_directory = self.results_root / run_id
-        if run_directory.exists():
-            raise FileExistsError(run_directory)
-        run_directory.mkdir(parents=True)
-        return run_directory
+        return self._results_directory.create_child(run_id)
+
+    @staticmethod
+    def _final_snapshot_id(
+        store: WorldStore, agent_result: Mapping[str, object]
+    ) -> str:
+        """Recover the exact committed terminal identity for runner final snapshots."""
+
+        with store.view() as view:
+            actions = view.actions()
+        if not actions:
+            raise ResultArtifactError("finished episode has no terminal Action")
+        terminal = actions[-1]
+        payload = terminal.output_payload
+        if terminal.tool != "finish_episode" or not isinstance(payload, Mapping):
+            raise ResultArtifactError("finished episode has no terminal Action")
+        snapshot_id = payload.get("final_snapshot_id")
+        if not isinstance(snapshot_id, str) or not snapshot_id:
+            raise ResultArtifactError("terminal Action has no final snapshot identity")
+        summary = agent_result.get("finish_summary")
+        if not isinstance(summary, Mapping):
+            raise ResultArtifactError("terminal Action contradicts agent completion")
+        if summary.get("final_snapshot_id") != snapshot_id:
+            raise ResultArtifactError("terminal Action contradicts agent completion")
+        return snapshot_id
 
     def _validate_world(self, store: WorldStore) -> None:
         with store.view() as view:

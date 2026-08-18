@@ -166,8 +166,8 @@ def test_evaluator_writes_the_extended_e17_scores_json(tmp_path: Path) -> None:
         [result, result, result], tmp_path / "aggregate.json", k=3
     )
     aggregate = aggregate_path.read_text(encoding="utf-8")
-    assert '"pass_at_1": 1' in aggregate
-    assert '"pass_to_3": 1' in aggregate
+    assert '"pass_at_1":1' in aggregate
+    assert '"pass_to_3":1' in aggregate
 
 
 def test_evaluator_serializes_dual_judge_review_disagreement(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final, cast
 
 from mirrorfirm.harness.adapters.base import ProviderPayload
+from mirrorfirm.security import SanitizationError, sanitize_for_persistence
 from mirrorfirm.tools import MCPToolServer, WorldToolEngine
 
 _BUDGET_ERROR_CODE: Final = "EPISODE_BUDGET_EXCEEDED"
@@ -157,7 +158,19 @@ class StatefulEpisodeAdapter:
             return self._error_result(
                 "VALIDATION_ERROR", "tool arguments must be a JSON object"
             )
-        typed_arguments = cast(dict[str, object], parsed_arguments)
+        try:
+            sanitized_arguments = sanitize_for_persistence(parsed_arguments)
+        except SanitizationError:
+            self._tool_errors += 1
+            return self._error_result(
+                "VALIDATION_ERROR", "tool arguments cannot be represented safely"
+            )
+        if not isinstance(sanitized_arguments, dict):  # pragma: no cover - defensive
+            self._tool_errors += 1
+            return self._error_result(
+                "VALIDATION_ERROR", "tool arguments cannot be represented safely"
+            )
+        typed_arguments = cast(dict[str, object], sanitized_arguments)
         if self._would_exceed_world_time(name, typed_arguments):
             self._world_time_budget_exhausted = True
             return self._error_result(

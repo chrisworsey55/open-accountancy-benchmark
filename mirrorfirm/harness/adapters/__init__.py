@@ -5,5 +5,19 @@
 """Provider adapter interface and implementations derived from Harvey LAB."""
 
 from mirrorfirm.harness.adapters.base import ModelAdapter, ModelResponse, ToolCall
+from mirrorfirm.harness.adapters.factory import (
+    AdapterResolutionError,
+    credentials_available,
+    known_provider,
+    resolve_live_adapter,
+)
 
-__all__ = ["ModelAdapter", "ModelResponse", "ToolCall"]
+__all__ = [
+    "AdapterResolutionError",
+    "ModelAdapter",
+    "ModelResponse",
+    "ToolCall",
+    "credentials_available",
+    "known_provider",
+    "resolve_live_adapter",
+]

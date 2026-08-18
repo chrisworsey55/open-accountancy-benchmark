@@ -47,6 +47,7 @@ from mirrorfirm.core.models import (
     ReviewerNotePayload,
     ReviewNote,
     SendMessageDescriptor,
+    StateSnapshot,
     Task,
     Thread,
     VersionedModel,
@@ -81,17 +82,23 @@ class WorldToolEngine:
         registry: ToolRegistry = DEFAULT_REGISTRY,
         episode_run_id: str = "run-r000001",
         snapshot_dir: str | Path | None = None,
+        snapshot_writer: Callable[[str], StateSnapshot] | None = None,
         active_event_ids: Iterable[str] | None = None,
     ) -> None:
         self.store = store
         self.world_root = Path(world_root).resolve()
         self.registry = registry
         self.episode_run_id = episode_run_id
+        if snapshot_writer is not None and snapshot_dir is not None:
+            raise ValueError(
+                "snapshot writer and snapshot directory are mutually exclusive"
+            )
         self.snapshot_dir = (
             Path(snapshot_dir).resolve()
-            if snapshot_dir is not None
-            else store.path.parent / "snapshots"
+            if snapshot_writer is None and snapshot_dir is not None
+            else (store.path.parent / "snapshots" if snapshot_writer is None else None)
         )
+        self._snapshot_writer = snapshot_writer
         self._active_event_ids = (
             frozenset(active_event_ids) if active_event_ids is not None else None
         )
@@ -180,14 +187,19 @@ class WorldToolEngine:
                 )
                 if name == "finish_episode":
                     try:
-                        snapshot = self.store.snapshot(
-                            self.snapshot_dir / f"{result['final_snapshot_id']}.db",
-                            snapshot_id=str(result["final_snapshot_id"]),
-                            episode_run_id=self.episode_run_id,
-                            phase="final",
-                            transactional=True,
+                        snapshot = (
+                            self._snapshot_writer(str(result["final_snapshot_id"]))
+                            if self._snapshot_writer is not None
+                            else self.store.snapshot(
+                                cast(Path, self.snapshot_dir)
+                                / f"{result['final_snapshot_id']}.db",
+                                snapshot_id=str(result["final_snapshot_id"]),
+                                episode_run_id=self.episode_run_id,
+                                phase="final",
+                                transactional=True,
+                            )
                         )
-                    except (OSError, RuntimeError, ValueError) as error:
+                    except (OSError, RuntimeError) as error:
                         raise ToolExecutionError(
                             "VALIDATION_ERROR", "final snapshot could not be created"
                         ) from error

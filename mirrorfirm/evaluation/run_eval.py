@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -29,6 +28,7 @@ from mirrorfirm.evaluation.scoring import (
     score_evaluation,
 )
 from mirrorfirm.evaluation.state import Deliverables, ProvenanceGraph
+from mirrorfirm.reporting.artifacts import write_json_atomic, write_scores_artifact
 
 
 def evaluate_run(
@@ -124,22 +124,7 @@ def evaluate_run(
 
 def write_scores(result: EvaluationResult, destination: str | Path) -> Path:
     """Persist the extended per-run E.17 JSON schema as ``scores.json``."""
-
-    destination_path = Path(destination)
-    if destination_path.name != "scores.json":
-        destination_path = destination_path / "scores.json"
-    destination_path.parent.mkdir(parents=True, exist_ok=True)
-    destination_path.write_text(
-        json.dumps(
-            result.model_dump(mode="json"),
-            ensure_ascii=False,
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    return destination_path
+    return write_scores_artifact(result, destination)
 
 
 def aggregate_scores(
@@ -178,18 +163,7 @@ def write_aggregate_scores(
     destination_path = Path(destination)
     if destination_path.suffix != ".json":
         destination_path = destination_path / "aggregate.json"
-    destination_path.parent.mkdir(parents=True, exist_ok=True)
-    destination_path.write_text(
-        json.dumps(
-            aggregate_scores(results, k=k),
-            ensure_ascii=False,
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    return destination_path
+    return write_json_atomic(destination_path, aggregate_scores(results, k=k))
 
 
 def _criterion_params(

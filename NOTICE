@@ -13,6 +13,7 @@ Derived files:
 - mirrorfirm/harness/adapters/fireworks.py
 - mirrorfirm/harness/agent_loop.py
 - mirrorfirm/reporting/report.py
+- mirrorfirm/reporting/sweep.py
 
 No code or content from Mercor Archipelago, Thrive private systems, or Harvey LAB
 legal tasks, task schemas, skills, sandbox, or tool executor is included.
