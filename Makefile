@@ -1,4 +1,4 @@
-.PHONY: setup fmt lint type test demo
+.PHONY: setup fmt lint type test docs release-check demo
 
 setup:
 	uv sync --all-groups --frozen
@@ -15,5 +15,12 @@ type:
 test:
 	uv run pytest
 
+docs:
+	uv run python scripts/check_docs.py
+
+release-check: docs
+	uv lock --check
+	uv run python scripts/check_release.py
+
 demo:
-	@printf '%s\n' 'WP-01 scaffold only: the runnable episode demo is introduced in WP-10.'
+	uv run python scripts/run_demo.py

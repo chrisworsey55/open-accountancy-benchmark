@@ -27,6 +27,8 @@ from mirrorfirm.reporting.artifacts import (
 from mirrorfirm.reporting.report import write_comparison_report, write_scorecard
 from mirrorfirm.reporting.sweep import SweepConfig, SweepError, preflight_sweep
 
+_CREDENTIAL_CANARY = "CANARY_" + "PRIVATE_KEY"
+
 
 def _result(model: str = "fictional/model") -> EvaluationResult:
     return EvaluationResult(
@@ -117,7 +119,7 @@ def _persisted_run(
         model=model,
         world_id="wld-fictional",
         world_version="0.1.0",
-        configuration={"temperature": 0, "private_key": "CANARY_PRIVATE_KEY_71d"},
+        configuration={"temperature": 0, "private_key": f"{_CREDENTIAL_CANARY}_71d"},
         judge_models=[],
         run_id=result.run_id,
         initial_snapshot=initial,

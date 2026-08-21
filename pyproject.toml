@@ -35,6 +35,10 @@ packages = ["mirrorfirm"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "jurisdictions" = "jurisdictions"
+"worlds" = "worlds"
+"episodes" = "episodes"
+"schemas" = "schemas"
+"LICENSES/harvey-labs.MIT.txt" = "LICENSES/harvey-labs.MIT.txt"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -14,7 +14,10 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v5
       - run: make setup
+      - run: uv lock --check
       - run: make fmt
       - run: make lint
       - run: make type
+      - run: uv run mypy --config-file=/dev/null --strict mirrorfirm
+      - run: make docs
       - run: make test

@@ -49,6 +49,8 @@ from mirrorfirm.security import (
 )
 from mirrorfirm.worldgen import compile_world
 
+_CREDENTIAL_CANARY = "CANARY_" + "PRIVATE_KEY"
+
 ROOT = Path(__file__).resolve().parents[2]
 WORLD = ROOT / "worlds" / "uk-wyrley-brook"
 EPISODE_PATH = ROOT / "episodes" / "uk" / "ep-uk-01.yaml"
@@ -394,7 +396,7 @@ def test_transcript_secret_is_redacted_before_persistence_and_hashing(
 
     transcript = tmp_path / "transcript.jsonl"
     run_agent(
-        _FinishAdapter(text="CANARY_PRIVATE_KEY_6f4af"),
+        _FinishAdapter(text=f"{_CREDENTIAL_CANARY}_6f4af"),
         "system",
         "prompt",
         _NoopExecutor(),
@@ -402,7 +404,7 @@ def test_transcript_secret_is_redacted_before_persistence_and_hashing(
         transcript_path=str(transcript),
     )
 
-    assert "CANARY_PRIVATE_KEY_6f4af" not in transcript.read_text(encoding="utf-8")
+    assert f"{_CREDENTIAL_CANARY}_6f4af" not in transcript.read_text(encoding="utf-8")
 
 
 def test_transcript_sanitizer_handles_nested_plaintext_pem_and_bearer_values(
@@ -412,14 +414,14 @@ def test_transcript_sanitizer_handles_nested_plaintext_pem_and_bearer_values(
 
     nested = {
         "metadata": {
-            "private-key": "CANARY_PRIVATE_KEY_6f4af",
+            "private-key": f"{_CREDENTIAL_CANARY}_6f4af",
             "authorization": "Bearer canary-token-value",
         },
         "text": "-----BEGIN PRIVATE KEY-----\nCANARY\n-----END PRIVATE KEY-----",
     }
     sanitized = sanitize_for_persistence(nested)
     rendered = json.dumps(sanitized, sort_keys=True)
-    for secret in ("CANARY_PRIVATE_KEY_6f4af", "canary-token-value", "CANARY"):
+    for secret in (f"{_CREDENTIAL_CANARY}_6f4af", "canary-token-value", "CANARY"):
         assert secret not in rendered
     with pytest.raises(SanitizationError, match="keys"):
         sanitize_for_persistence({1: "unsafe"})
@@ -427,7 +429,7 @@ def test_transcript_sanitizer_handles_nested_plaintext_pem_and_bearer_values(
     first = tmp_path / "first.jsonl"
     second = tmp_path / "second.jsonl"
     run_agent(
-        _FinishAdapter(text="CANARY_PRIVATE_KEY_first"),
+        _FinishAdapter(text=f"{_CREDENTIAL_CANARY}_first"),
         "system",
         "prompt",
         _NoopExecutor(),
@@ -435,7 +437,7 @@ def test_transcript_sanitizer_handles_nested_plaintext_pem_and_bearer_values(
         transcript_path=str(first),
     )
     run_agent(
-        _FinishAdapter(text="CANARY_PRIVATE_KEY_second"),
+        _FinishAdapter(text=f"{_CREDENTIAL_CANARY}_second"),
         "system",
         "prompt",
         _NoopExecutor(),
