@@ -446,7 +446,8 @@ def test_load_installed_pack_rejects_nonregular_metadata_files(
 def test_secure_metadata_reader_rejects_socket_and_device_files() -> None:
     """The common descriptor boundary also excludes sockets and character devices."""
 
-    with tempfile.TemporaryDirectory(prefix="mf-", dir="/private/tmp") as temporary:
+    short_tmp = "/tmp" if Path("/tmp").is_dir() else None
+    with tempfile.TemporaryDirectory(prefix="mf-", dir=short_tmp) as temporary:
         socket_path = Path(temporary) / "metadata.socket"
         server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server.bind(str(socket_path))
