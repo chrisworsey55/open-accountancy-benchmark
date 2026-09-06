@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from conftest import SnapshotView, base_records, journal
 
+from mirrorfirm.core.models import ProvenanceRecord
 from mirrorfirm.evaluation.deterministic import (
     GRADER_IDS,
     get_grader,
@@ -97,3 +98,40 @@ def test_journal_exact_checks_the_status_and_each_posted_line() -> None:
     )
 
     assert result.passed is True
+
+
+def test_semantic_journal_match_checks_evidence_on_actual_output_id() -> None:
+    """Generated identity is immaterial; the actual journal still needs its evidence."""
+    actual = journal(identifier="jnl-agent-generated")
+    initial = SnapshotView(base_records())
+    record = ProvenanceRecord(
+        id="prov-fictional",
+        subject_ref=actual.id,
+        basis_ref="doc-fictional-source",
+        relation="supported_by",
+    )
+    final = SnapshotView([*base_records(), actual, record])
+    params = {
+        "match_created_by_content": True,
+        "expected_journals": {
+            "jnl-reference-generated": {
+                "status": actual.status,
+                "lines": [line.model_dump(mode="json") for line in actual.lines],
+                "provenance_refs": [record.basis_ref],
+            }
+        },
+    }
+    for graph, passes in [
+        (ProvenanceGraph.from_world(final), True),
+        (ProvenanceGraph(records=()), False),
+    ]:
+        result = grade_registered(
+            "journal_exact",
+            initial,
+            final,
+            [],
+            graph,
+            Deliverables(summary=None, references=(), unresolved_items=()),
+            params,
+        )
+        assert result.passed is passes

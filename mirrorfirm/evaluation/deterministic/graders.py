@@ -324,7 +324,7 @@ class JournalExactGrader:
             if expected.memo is not None and journal.memo != expected.memo:
                 mismatches.append(f"{journal_id} has an unexpected memo")
             if expected.provenance_refs is not None and provenance.bases_for(
-                journal_id
+                journal.id
             ) != frozenset(expected.provenance_refs):
                 mismatches.append(f"{journal_id} has unexpected provenance")
         if params.forbid_additional_episode_journals:
