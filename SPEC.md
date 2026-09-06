@@ -1224,3 +1224,24 @@ Rules you must follow:
     it in this session; show me the working-tree diff summary instead.
 
 Begin by listing the files you intend to create for WP-01, then implement.
+
+## Release amendment — 6 September 2026
+
+This authorised launch-hardening revision retains the seven-episode and 37-tool scope.
+Worlds are 0.1.1 and scoring is wp09-v2. Reconciliation expectations are grounded in
+versioned sources and posted ledger balances. Outstanding amounts use the signed
+book-to-bank convention; disclosed signed residuals must exactly explain the remaining
+difference. Journal comparisons preserve every material line field and multiplicity
+but permit line order and authored semantic matching of newly created journals.
+Summary completeness uses terminal evidence references, unresolved declarations and
+state assertions; factual wording is assessed by qualitative judges with observed
+state context. Legacy literal summary configuration remains decodable.
+
+The external MCP connection implements the 2025-06-18 lifecycle and the existing
+episode adapter. Its external model token/cost use is unverified and it is unranked.
+The public learning schemas and synthetic exporter now ship; optional HumanEffort
+records distinguish unknown from directly measured interventions/review/rework.
+The production learning pipeline remains private. The alpha text parser is UTF-8
+only; container parser isolation is an operator-supplied, unverified path.
+Practitioner sign-off and actual model measurements must never be inferred from
+passing controls. See docs/LAUNCH_STATUS.md for the current evidence gates.

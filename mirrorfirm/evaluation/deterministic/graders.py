@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import ClassVar, Literal, Protocol
@@ -14,6 +15,7 @@ from mirrorfirm.core.models import (
     AccountingPeriod,
     Action,
     Approval,
+    BankAccount,
     BankReconWorkpaper,
     BankTransaction,
     ClassificationSummaryWorkpaper,
@@ -117,6 +119,7 @@ class JournalExactParams(GraderParams):
     expected_statuses: dict[str, str] = Field(default_factory=dict)
     expected_journals: dict[str, ExpectedJournal] = Field(default_factory=dict)
     forbid_additional_episode_journals: bool = False
+    match_created_by_content: bool = False
 
 
 class ExpectedOutstandingItem(GraderParams):
@@ -148,6 +151,7 @@ class ReconciliationParams(GraderParams):
     expected_reconciliations: list[ExpectedReconciliation] = Field(default_factory=list)
     expected_transaction_statuses: dict[str, str] = Field(default_factory=dict)
     forbid_additional_reconciliations: bool = False
+    verify_posted_ledger: bool = False
 
 
 class UnresolvedParams(GraderParams):
@@ -194,10 +198,14 @@ class ApprovedMessageParams(GraderParams):
 
 
 class SummaryParams(GraderParams):
-    """Required and prohibited literal text for an authored summary assertion."""
+    """Structured terminal evidence checks; literal fields decode legacy manifests."""
 
     required_text: list[str] = Field(default_factory=list)
     forbidden_text: list[str] = Field(default_factory=list)
+    require_summary: bool = False
+    min_references: int = Field(default=0, ge=0)
+    min_unresolved_items: int = Field(default=0, ge=0)
+    assertions: list[StateAssertion] = Field(default_factory=list)
 
 
 class DeterministicGrader(Protocol):
@@ -279,9 +287,11 @@ class JournalExactGrader:
         deliverables: Deliverables,
         params: GraderParams,
     ) -> CriterionResult:
-        del initial, deliverables
+        del deliverables
         assert isinstance(params, JournalExactParams)
         journals = by_id(final, Journal)
+        created = set(journals) - set(by_id(initial, Journal))
+        matched_ids: set[str] = set()
         mismatches = [
             f"{journal_id} expected {status}, got {journals[journal_id].status if journal_id in journals else 'missing'}"
             for journal_id, status in sorted(params.expected_statuses.items())
@@ -289,10 +299,18 @@ class JournalExactGrader:
         ]
         for journal_id, expected in sorted(params.expected_journals.items()):
             journal = journals.get(journal_id)
+            if params.match_created_by_content:
+                candidates = [
+                    journals[identifier]
+                    for identifier in sorted(created - matched_ids)
+                    if _journal_matches(journals[identifier], expected, provenance)
+                ]
+                journal = candidates[0] if candidates else None
             if journal is None:
-                mismatches.append(f"{journal_id} is missing")
+                mismatches.append(f"{journal_id} has no matching journal")
                 continue
-            if journal.status != expected.status or journal.lines != expected.lines:
+            matched_ids.add(journal.id)
+            if not _journal_matches(journal, expected, provenance):
                 mismatches.append(f"{journal_id} does not match the expected journal")
             if expected.date is not None and journal.date.isoformat() != expected.date:
                 mismatches.append(f"{journal_id} has an unexpected date")
@@ -310,7 +328,7 @@ class JournalExactGrader:
             ) != frozenset(expected.provenance_refs):
                 mismatches.append(f"{journal_id} has unexpected provenance")
         if params.forbid_additional_episode_journals:
-            expected_ids = set(params.expected_journals) | set(params.expected_statuses)
+            expected_ids = matched_ids | set(params.expected_statuses)
             created = {
                 mutation.entity_id
                 for action in actions
@@ -378,6 +396,24 @@ class ReconTiesGrader:
                 failures.append(
                     f"{paper_id} does not match the expected reconciliation"
                 )
+            if params.verify_posted_ledger:
+                bank = final.get(BankAccount, body.bank_account_id)
+                period = final.get(AccountingPeriod, body.period_id)
+                balance = sum(
+                    line.amount_minor if line.direction == "dr" else -line.amount_minor
+                    for journal in final.list(Journal)
+                    if bank is not None
+                    and period is not None
+                    and journal.status == "posted"
+                    and journal.entity_id == bank.entity_id
+                    and journal.date <= period.end
+                    for line in journal.lines
+                    if line.account_id == bank.ledger_account_id
+                )
+                if bank is None or period is None or balance != body.ledger_end_minor:
+                    failures.append(
+                        f"{paper_id} ledger balance is not supported by posted entries"
+                    )
         if params.forbid_additional_reconciliations:
             failures.extend(
                 f"unsupported reconciliation {paper_id}"
@@ -755,7 +791,7 @@ class SummaryConsistencyGrader:
         deliverables: Deliverables,
         params: GraderParams,
     ) -> CriterionResult:
-        del initial, final, actions, provenance
+        del actions, provenance
         assert isinstance(params, SummaryParams)
         summary = deliverables.summary or ""
         failures = [
@@ -765,6 +801,26 @@ class SummaryConsistencyGrader:
             f"contains prohibited {text!r}"
             for text in params.forbidden_text
             if text in summary
+        )
+        if params.require_summary and not summary.strip():
+            failures.append("terminal summary is missing")
+        index = ClientScopeIndex.from_world(final)
+        if len(set(deliverables.references)) < params.min_references:
+            failures.append("terminal evidence references are missing")
+        failures.extend(
+            f"unknown terminal reference {reference}"
+            for reference in deliverables.references
+            if not index.has_reference(reference)
+        )
+        if (
+            len([item for item in deliverables.unresolved_items if item.strip()])
+            < params.min_unresolved_items
+        ):
+            failures.append("terminal unresolved items are missing")
+        failures.extend(
+            detail
+            for assertion in params.assertions
+            if (detail := _assertion_detail(assertion, initial, final)) is not None
         )
         return _result(self.grader_id, not failures, failures, [])
 
@@ -790,7 +846,27 @@ def _recon_is_honest(body: BankReconWorkpaper) -> bool:
     difference = body.statement_end_minor - (
         body.ledger_end_minor + sum(item.amount_minor for item in body.outstanding)
     )
-    return difference == 0 or bool(body.unresolved)
+    return difference == sum(item.amount_minor or 0 for item in body.unresolved)
+
+
+def _journal_matches(
+    journal: Journal, expected: ExpectedJournal, provenance: ProvenanceGraph
+) -> bool:
+    # A multiset preserves duplicate lines and every material field, without imposing
+    # a presentation order or relying on the generated output identifier.
+    return (
+        journal.status == expected.status
+        and Counter(line.model_dump_json() for line in journal.lines)
+        == Counter(line.model_dump_json() for line in expected.lines)
+        and (expected.date is None or journal.date.isoformat() == expected.date)
+        and (expected.entity_id is None or journal.entity_id == expected.entity_id)
+        and (expected.source is None or journal.source == expected.source)
+        and (expected.memo is None or journal.memo == expected.memo)
+        and (
+            expected.provenance_refs is None
+            or provenance.bases_for(journal.id) == frozenset(expected.provenance_refs)
+        )
+    )
 
 
 def _outstanding_keys(body: BankReconWorkpaper) -> list[tuple[object, ...]]:
@@ -798,8 +874,7 @@ def _outstanding_keys(body: BankReconWorkpaper) -> list[tuple[object, ...]]:
         (
             item.ref,
             item.amount_minor,
-            item.reason,
-            tuple(item.provenance_refs),
+            tuple(sorted(set(item.provenance_refs))),
         )
         for item in body.outstanding
     )
@@ -812,8 +887,7 @@ def _expected_outstanding_keys(
         (
             item.ref,
             item.amount_minor,
-            item.reason,
-            tuple(item.provenance_refs),
+            tuple(sorted(set(item.provenance_refs))),
         )
         for item in expected.outstanding
     )
@@ -821,8 +895,11 @@ def _expected_outstanding_keys(
 
 def _unresolved_keys(body: BankReconWorkpaper) -> list[tuple[object, ...]]:
     return sorted(
-        (item.description, item.amount_minor, tuple(item.provenance_refs))
-        for item in body.unresolved
+        (
+            (item.amount_minor, tuple(sorted(set(item.provenance_refs))))
+            for item in body.unresolved
+        ),
+        key=repr,
     )
 
 
@@ -830,8 +907,11 @@ def _expected_unresolved_keys(
     expected: ExpectedReconciliation,
 ) -> list[tuple[object, ...]]:
     return sorted(
-        (item.description, item.amount_minor, tuple(item.provenance_refs))
-        for item in expected.unresolved
+        (
+            (item.amount_minor, tuple(sorted(set(item.provenance_refs))))
+            for item in expected.unresolved
+        ),
+        key=repr,
     )
 
 

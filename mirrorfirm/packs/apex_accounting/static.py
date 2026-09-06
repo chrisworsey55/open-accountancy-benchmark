@@ -170,7 +170,7 @@ class _StaticExecutionSnapshot:
 
 
 class StaticTaskRunner:
-    """Run a static APEX task without opening a compiled Mirror Firm world."""
+    """Run a static APEX task without opening a compiled Franklin & McGrath world."""
 
     def __init__(self, pack_root: str | Path, task: StaticTaskEpisode | str) -> None:
         """Bind execution to one verified installed task artifact.

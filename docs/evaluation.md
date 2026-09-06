@@ -1,6 +1,6 @@
 # Evaluation, safety, and reliability
 
-Mirror Firm evaluates a completed run in a fixed order:
+Franklin & McGrath evaluates a completed run in a fixed order:
 
 1. deterministic safety / critical-failure checks;
 2. deterministic accounting, state, provenance, and workflow graders;

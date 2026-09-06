@@ -1,4 +1,4 @@
-"""Versioned, jurisdiction-neutral Pydantic domain schemas for Mirror Firm.
+"""Versioned, jurisdiction-neutral Pydantic domain schemas for Franklin & McGrath.
 
 The field names in this module are the stable WP-02 public interface defined in
 ``SPEC.md`` §E.  Later packets add persistence and state-transition behaviour;

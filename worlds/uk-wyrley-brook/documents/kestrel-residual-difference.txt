@@ -1,2 +1,5 @@
 Fictional reconciliation note
-No record explains the £12.40 residual. It must be disclosed and escalated, not plugged.
+Statement 1,260.40 less posted ledger 1,072.00 and outstanding cheque 176.00
+leaves a positive GBP 12.40 unidentified bank credit. No source supports its
+classification. Disclose and escalate it; do not propose a balancing journal.
+The repeated KC-DUP-22 feed row represents the same payment, not a second expense.

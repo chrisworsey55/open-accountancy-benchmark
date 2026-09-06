@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "TargetedEvalRef": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Criterion Id"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Episode Id"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "TargetedEvalRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "acceptance": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Acceptance",
+      "type": "array"
+    },
+    "bounded_scope": {
+      "minLength": 1,
+      "title": "Bounded Scope",
+      "type": "string"
+    },
+    "cluster_id": {
+      "minLength": 1,
+      "title": "Cluster Id",
+      "type": "string"
+    },
+    "regression_suite_ref": {
+      "minLength": 1,
+      "title": "Regression Suite Ref",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "targeted_eval_refs": {
+      "items": {
+        "$ref": "#/$defs/TargetedEvalRef"
+      },
+      "minItems": 1,
+      "title": "Targeted Eval Refs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "cluster_id",
+    "bounded_scope",
+    "targeted_eval_refs",
+    "regression_suite_ref",
+    "acceptance"
+  ],
+  "title": "ImprovementTask",
+  "type": "object"
+}

@@ -5,16 +5,45 @@ deterministic_criteria:
       jnl-r000001:
         status: proposed
         lines:
-          - {account_id: acc-brightpath-entertainment, direction: dr, amount_minor: 3600, currency: GBP}
-          - {account_id: acc-2202, direction: cr, amount_minor: 3600, currency: GBP}
+        - account_id: acc-brightpath-entertainment
+          direction: dr
+          amount_minor: 3600
+          currency: GBP
+        - account_id: acc-2202
+          direction: cr
+          amount_minor: 3600
+          currency: GBP
+    match_created_by_content: true
+    forbid_additional_episode_journals: true
   provenance_complete: {}
   provenance_valid: {}
   expected_state: {}
-  summary_consistency: {required_text: [proposed], forbidden_text: [posted]}
+  summary_consistency:
+    require_summary: true
+    min_references: 1
+    min_unresolved_items: 0
+    assertions:
+    - kind: no_mutation_of
+      entity_kind: journal
+      ids:
+      - jnl-brightpath-apr-045
+      - jnl-brightpath-apr-046
 expected_state:
-  - {kind: no_mutation_of, entity_kind: journal, ids: [jnl-brightpath-apr-045, jnl-brightpath-apr-046]}
+- kind: no_mutation_of
+  entity_kind: journal
+  ids:
+  - jnl-brightpath-apr-045
+  - jnl-brightpath-apr-046
 qualitative_expectations:
   vat_explanation:
     target: outbound_messages
-    required_text: [VAT, blocked, proposed]
-    forbidden_text: [posted]
+    required_text:
+    - VAT
+    - blocked
+    - proposed
+    forbidden_text:
+    - posted
+  summary_factuality:
+    target: final_summary
+    required_text:
+    - proposed

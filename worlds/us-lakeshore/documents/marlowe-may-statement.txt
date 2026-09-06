@@ -1,6 +1,13 @@
-Marlowe Design Studio Inc
-May 2026 bank statement
-Opening ledger balance: $1,130.00
-Customer check deposit MD-DEP-108: $1,000.00
-Returned check NSF MD-NSF-108: ($1,000.00)
-Statement ending balance: $1,200.00
+Fictional Marlowe Design Studio Inc — May bank statement and cash-book control
+Account: bnk-marlowe. Period: prd-marlowe-may. Currency: USD.
+Opening bank balance: 1,130.00.
+Payroll paid May 15: (312.00).
+Customer check deposit MD-DEP-108: 1,000.00.
+Returned check NSF MD-NSF-108: (1,000.00).
+Statement ending balance: 818.00.
+The posted ledger contains the opening balance, payroll, Alder receipt and
+Orchid deposit of 700.00. Its balance is 2,518.00. The NSF reversal is not posted.
+Reconciliation from posted books to statement: 2,518.00 - 1,000.00 proposed NSF
+adjustment - 700.00 deposit in transit = 818.00. Identify the NSF adjustment
+separately from the timing item. Proposing it does not change the posted ledger.
+The imported Orchid row is a cash-book deposit awaiting bank clearance.

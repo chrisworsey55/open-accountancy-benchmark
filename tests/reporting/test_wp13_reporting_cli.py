@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from html import escape
 from pathlib import Path
 
 import pytest
@@ -324,7 +325,7 @@ def test_external_apex_result_has_a_separate_labelled_report(tmp_path: Path) -> 
         task_id="task-fictional",
         source_revision="a" * 40,
         report_label=(
-            "APEX-Accounting public dev set via Mirror Firm importer - external; "
+            "APEX-Accounting public dev set via Franklin & McGrath importer - external; "
             "not comparable to the official APEX leaderboard"
         ),
         contamination="public-reference-answers",
@@ -340,7 +341,7 @@ def test_external_apex_result_has_a_separate_labelled_report(tmp_path: Path) -> 
     )
     report = html_path.read_text(encoding="utf-8")
     assert evaluation.source_revision in report
-    assert evaluation.report_label in report
+    assert escape(evaluation.report_label) in report
     assert "excluded from all headline aggregation" in report
 
 

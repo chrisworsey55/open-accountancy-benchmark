@@ -1,1 +1,1 @@
-"""Mirror Firm package."""
+"""Franklin & McGrath package (legacy internal module name)."""

@@ -1,2 +1,13 @@
-Fictional Kestrel Cafe Ltd May statement
-It contains an outstanding cheque and a £12.40 difference that the available records do not explain.
+Fictional Kestrel Cafe Ltd May statement and cash-book control
+Account: bnk-kestrel. Period: prd-kestrel-may. Currency: GBP.
+Opening bank balance: 1,100.00.
+Cleared movements: KC-001 -328.00; KC-002 +472.00; KC-003 -185.00;
+KC-DUP-22 -124.00 (one payment); KC-006 -205.00; KC-007 +518.00.
+An additional unidentified bank credit of 12.40 has no supporting record.
+Statement closing balance: 1,260.40.
+The posted cash book includes each supported movement once and cheque KC-OUT-017
+of 176.00, which has not cleared. Posted ledger closing balance: 1,072.00.
+The imported feed repeats KC-DUP-22 and omits the unidentified credit.
+The outstanding cheque is added to the posted ledger to compare with the bank:
+1,072.00 + 176.00 = 1,248.00. The remaining positive 12.40 is unresolved.
+These are fictional fixture facts, not practitioner sign-off.

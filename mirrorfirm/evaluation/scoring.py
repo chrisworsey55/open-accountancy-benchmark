@@ -103,7 +103,7 @@ def score_evaluation(
 def aggregate_results(
     results: Sequence[object], *, k: int | None = None
 ) -> ReliabilityAggregate:
-    """Aggregate only native Mirror Firm evaluations using the first ``k`` runs."""
+    """Aggregate only native Franklin & McGrath evaluations using the first ``k`` runs."""
 
     if not results:
         raise ValueError("at least one evaluation result is required")
@@ -137,7 +137,7 @@ def _require_native_aggregation_result(
             "contaminated external APEX results cannot enter native aggregation"
         )
     raise ValueError(
-        "native aggregation accepts only verified Mirror Firm EvaluationResult values"
+        "native aggregation accepts only verified Franklin & McGrath EvaluationResult values"
     )
 
 

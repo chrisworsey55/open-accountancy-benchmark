@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "actionable": {
+      "title": "Actionable",
+      "type": "boolean"
+    },
+    "correction_id": {
+      "minLength": 1,
+      "title": "Correction Id",
+      "type": "string"
+    },
+    "field_path": {
+      "minLength": 1,
+      "title": "Field Path",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "correction_id",
+    "actionable",
+    "field_path"
+  ],
+  "title": "DifferenceRecord",
+  "type": "object"
+}

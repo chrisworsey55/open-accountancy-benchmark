@@ -9,12 +9,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_DOCUMENTS: dict[str, tuple[str, ...]] = {
     "README.md": (
-        "Mirror Firm",
+        "Franklin & McGrath",
         "reference (scripted) - not model performance",
         "make demo",
     ),
     "SECURITY.md": ("Threat model", "Known limitations"),
-    "TRADEMARKS.md": ("Mirror Firm", "Third-party marks"),
+    "TRADEMARKS.md": ("Franklin & McGrath", "Third-party marks"),
     "CONTRIBUTING.md": ("fictional", "tests"),
     "docs/architecture.md": ("Data flow", "StateSnapshot"),
     "docs/authoring-worlds.md": ("fictional", "validate"),
@@ -27,6 +27,18 @@ REQUIRED_DOCUMENTS: dict[str, tuple[str, ...]] = {
     "docs/applied-boundary.md": ("Applied", "private"),
     "docs/development.md": ("uv", "deterministic"),
     "docs/apex-compat.md": ("contamination", "not comparable"),
+    "docs/LAUNCH_AUDIT_2026-09-01.md": ("Status", "Codex fixed"),
+    "docs/LAUNCH_CHECKLIST_2026-09-01.md": ("Before publishing", "Do not launch"),
+    "docs/LAUNCH_COPY.md": ("Developer alpha", "Practitioner review"),
+    "docs/LAUNCH_STATUS.md": ("Evidence gates", "Real-agent baselines"),
+    "docs/learning-contract.md": ("HumanEffort", "applied-only"),
+    "docs/LEADERBOARD_METHODOLOGY.md": (
+        "Reference (scripted) - not model performance",
+        "Critical failures",
+    ),
+    "docs/LEGACY_NAMING.md": ("Retained legacy naming", "mirrorfirm"),
+    "docs/OPEN_SOURCE_BOUNDARY.md": ("Public preparation scope", "Private by design"),
+    "docs/V1_SCOPE_FREEZE_2026-09-01.md": ("Proposition", "Explicitly excluded"),
 }
 
 

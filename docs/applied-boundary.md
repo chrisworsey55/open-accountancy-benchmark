@@ -1,6 +1,6 @@
-# Public Mirror Firm and private Applied boundary
+# Public Franklin & McGrath and private Applied boundary
 
-Mirror Firm is the public synthetic environment: fictional worlds, typed tool and trace
+Franklin & McGrath is the public synthetic environment: fictional worlds, typed tool and trace
 schemas, deterministic graders, reference controls, documentation, and local result
 artifacts. It is deliberately useful without any production accounting connection.
 
@@ -10,7 +10,7 @@ evaluation construction, deployment decisions, and post-training data. None of t
 systems, data, credentials, or private prompts are imported by this repository.
 
 The shared boundary is limited to the public learning schemas and synthetic episode
-traces described in SPEC §K. Mirror Firm must not grow a production ingestion pipeline,
+traces described in SPEC §K. Franklin & McGrath must not grow a production ingestion pipeline,
 telemetry service, private-dataset dependency, or a claim that its fictional results
 represent Applied or real-firm performance.
 

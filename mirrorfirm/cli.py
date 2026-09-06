@@ -27,6 +27,7 @@ from mirrorfirm.harness.adapters import (
     AdapterResolutionError,
     resolve_live_adapter,
 )
+from mirrorfirm.launch.web import serve as serve_launch_site
 from mirrorfirm.packs.apex_accounting import (
     APEX_ACCOUNTING_LABEL,
     ApexImportError,
@@ -72,7 +73,7 @@ _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the public local-only Mirror Firm command surface."""
+    """Run the Franklin & McGrath public local benchmark command surface."""
 
     parser = _build_parser()
     arguments = parser.parse_args(argv)
@@ -85,18 +86,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         AdapterResolutionError,
         ApexImportError,
     ) as error:
-        print(f"mirror-firm: {sanitize_text(str(error))}", file=sys.stderr)
+        print(f"franklin-mcgrath: {sanitize_text(str(error))}", file=sys.stderr)
         return 2
     except (EpisodeAuthoringError, ReferenceScriptError, OSError, ValueError) as error:
-        print(f"mirror-firm: {sanitize_text(str(error))}", file=sys.stderr)
+        print(f"franklin-mcgrath: {sanitize_text(str(error))}", file=sys.stderr)
         return 2
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="mirror-firm", description="Mirror Firm local evaluation CLI"
+        prog="mirror-firm",
+        description="Franklin & McGrath local benchmark CLI (legacy command name retained)",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+
+    mcp = commands.add_parser(
+        "mcp", help="serve a fresh, scoped developer MCP episode (unranked)"
+    )
+    mcp.add_argument("action", choices=("serve",))
+    mcp.add_argument("--episode", required=True)
+    mcp.add_argument("--results-root", type=Path, default=Path("results/mcp"))
+    mcp.add_argument("--run-id", required=True)
 
     listing = commands.add_parser("list", help="list authored worlds or episodes")
     listing.add_argument("resource", choices=("worlds", "episodes"))
@@ -145,6 +155,18 @@ def _build_parser() -> argparse.ArgumentParser:
     sweep.add_argument("config_path", type=Path)
     sweep.add_argument("--json", action="store_true")
 
+    launch = commands.add_parser(
+        "launch", help="serve the local Franklin & McGrath launch-site review app"
+    )
+    launch_commands = launch.add_subparsers(dest="launch_command", required=True)
+    launch_serve = launch_commands.add_parser(
+        "serve", help="start the local launch-site review server"
+    )
+    launch_serve.add_argument("--host", default="127.0.0.1")
+    launch_serve.add_argument("--port", default=8000, type=int)
+    launch_serve.add_argument("--results-root", type=Path)
+    launch_serve.add_argument("--leads-db", type=Path)
+
     packs = commands.add_parser("packs", help="manage external episode packs")
     pack_commands = packs.add_subparsers(dest="pack_command", required=True)
     install = pack_commands.add_parser("install", help="install a pinned external pack")
@@ -163,6 +185,25 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _dispatch(arguments: argparse.Namespace) -> int:
+    if arguments.command == "mcp":
+        episode = _episode(arguments.episode)
+        world = _world_directory_for_id(episode.world_id)
+        with tempfile.TemporaryDirectory(prefix="franklin-mcgrath-mcp-") as directory:
+            compiled = compile_world(world, Path(directory) / "compiled.db")
+            runner = EpisodeRunner(
+                episode,
+                compiled.database_path,
+                world_root=world,
+                results_root=arguments.results_root,
+            )
+            result = runner.run(
+                None, run_id=arguments.run_id, external_streams=(sys.stdin, sys.stdout)
+            )
+            print(
+                "External MCP session finished; model usage is unverified and this session is unranked.",
+                file=sys.stderr,
+            )
+            return 0 if result.completed else 1
     if arguments.command == "list":
         _list_resources(arguments.resource, as_json=arguments.json)
         return 0
@@ -256,9 +297,32 @@ def _dispatch(arguments: argparse.Namespace) -> int:
             as_json=arguments.json,
         )
         return 0 if all(entry.status == "complete" for entry in manifest.entries) else 1
+    if arguments.command == "launch":
+        if arguments.launch_command != "serve":
+            raise CLIError("unknown launch command")
+        if not 1 <= arguments.port <= 65_535:
+            raise CLIError("launch port must be between 1 and 65535")
+        results_root = arguments.results_root or _environment_path(
+            "FRANKLIN_MCGATH_RESULTS_ROOT"
+        )
+        leads_database = arguments.leads_db or _environment_path(
+            "FRANKLIN_MCGATH_LEADS_DB"
+        )
+        serve_launch_site(
+            host=arguments.host,
+            port=arguments.port,
+            results_root=results_root,
+            leads_database=leads_database,
+        )
+        return 0
     if arguments.command == "packs":
         return _dispatch_pack(arguments)
     raise CLIError("unknown command")
+
+
+def _environment_path(name: str) -> Path | None:
+    value = os.environ.get(name)
+    return Path(value) if value else None
 
 
 def _dispatch_pack(arguments: argparse.Namespace) -> int:

@@ -1,6 +1,6 @@
 # Safety model
 
-Mirror Firm treats model output, documents, imported APEX files, result artifacts, and
+Franklin & McGrath treats model output, documents, imported APEX files, result artifacts, and
 requested output paths as **untrusted**. The compiler, deterministic graders, and typed
 tool engine are trusted only after their source and fixture validation gates pass.
 

@@ -1,4 +1,4 @@
-"""Run the credential-free, deterministic Mirror Firm reference demonstration."""
+"""Run the credential-free, deterministic Franklin & McGrath reference demonstration."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class DemoError(ValueError):
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the deterministic, credential-free Mirror Firm reference demo."
+        description="Run the deterministic, credential-free Franklin & McGrath reference demo."
     )
     parser.add_argument(
         "--output-dir",
@@ -105,7 +105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"mirror-firm demo: {error}")
         return 2
 
-    print("Mirror Firm offline demonstration")
+    print("Franklin & McGrath offline demonstration")
     print(f"Run kind: {REFERENCE_LABEL}")
     print(
         "Result: "

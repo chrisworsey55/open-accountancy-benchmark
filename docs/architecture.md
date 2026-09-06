@@ -1,6 +1,6 @@
 # Architecture and data flow
 
-Mirror Firm is a local, deterministic stateful evaluation environment. Authored fixture
+Franklin & McGrath is a local, deterministic stateful evaluation environment. Authored fixture
 files are the source of truth; the runtime never mutates them.
 
 ```text

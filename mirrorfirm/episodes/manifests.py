@@ -39,7 +39,7 @@ def repository_root(start: str | Path | None = None) -> Path:
     for root in (candidate, *candidate.parents):
         if (root / "episodes").is_dir() and (root / "worlds").is_dir():
             return root
-    raise EpisodeAuthoringError("could not locate a Mirror Firm repository root")
+    raise EpisodeAuthoringError("could not locate a Franklin & McGrath repository root")
 
 
 def episode_root(jurisdiction: str, *, root: str | Path | None = None) -> Path:

@@ -1,6 +1,6 @@
 # Authoring fictional worlds and episodes
 
-Only fictional scenario data belongs in Mirror Firm. Do not add real people, firms,
+Only fictional scenario data belongs in Franklin & McGrath. Do not add real people, firms,
 addresses, transactions, documents, credentials, production traces, or client material.
 
 ## World workflow

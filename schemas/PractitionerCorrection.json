@@ -1,0 +1,57 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "enum": [
+        "extraction_miss",
+        "mapping_error",
+        "unsupported_capability",
+        "practitioner_preference",
+        "workflow_noise",
+        "judgement"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "expected": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "note": {
+      "minLength": 1,
+      "title": "Note",
+      "type": "string"
+    },
+    "observed": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject_ref": {
+      "minLength": 1,
+      "title": "Subject Ref",
+      "type": "string"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "trace_id",
+    "subject_ref",
+    "observed",
+    "expected",
+    "category",
+    "note"
+  ],
+  "title": "PractitionerCorrection",
+  "type": "object"
+}

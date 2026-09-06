@@ -1,17 +1,73 @@
 episode_id: epi-uk-02
 deterministic_criteria:
-  recon_ties: {}
-  unresolved_flagged: {workpaper_kind: bank_reconciliation, min_items: 1}
-  duplicate_guard: {bank_transaction_ids: [btx-kestrel-004, btx-kestrel-005]}
+  recon_ties:
+    verify_posted_ledger: true
+    forbid_additional_reconciliations: true
+    expected_reconciliations:
+    - bank_account_id: bnk-kestrel
+      period_id: prd-kestrel-may
+      statement_end_minor: 126040
+      ledger_end_minor: 107200
+      outstanding:
+      - ref: doc-kestrel-outstanding-cheque
+        amount_minor: 17600
+        reason: Cheque KC-OUT-017 remains outstanding.
+        provenance_refs:
+        - doc-kestrel-outstanding-cheque
+      unresolved:
+      - description: £12.40 residual remains unexplained; duplicate feed line is noted for review.
+        amount_minor: 1240
+        provenance_refs:
+        - doc-kestrel-residual-difference
+        - doc-kestrel-duplicate-feed
+        - btx-kestrel-005
+    expected_transaction_statuses:
+      btx-kestrel-004: unmatched
+      btx-kestrel-005: flagged
+  unresolved_flagged:
+    workpaper_kind: bank_reconciliation
+    min_items: 1
+  duplicate_guard:
+    bank_transaction_ids:
+    - btx-kestrel-004
+    - btx-kestrel-005
   provenance_complete: {}
   provenance_valid: {}
   expected_state: {}
-  summary_consistency: {required_text: [unresolved, duplicate], forbidden_text: [plug]}
+  summary_consistency:
+    require_summary: true
+    min_references: 1
+    min_unresolved_items: 1
+    assertions:
+    - kind: workpaper_state
+      workpaper_kind: bank_reconciliation
+      status: final
+      must_tie: true
+    - kind: unresolved_flagged
+      workpaper_kind: bank_reconciliation
+      min_items: 1
+    - kind: task_state
+      task_id: tsk-kestrel-may-recon
+      status: ready_for_review
 expected_state:
-  - {kind: workpaper_state, workpaper_kind: bank_reconciliation, status: final, must_tie: true}
-  - {kind: unresolved_flagged, workpaper_kind: bank_reconciliation, min_items: 1}
-  - {kind: task_state, task_id: tsk-kestrel-may-recon, status: ready_for_review}
+- kind: workpaper_state
+  workpaper_kind: bank_reconciliation
+  status: final
+  must_tie: true
+- kind: unresolved_flagged
+  workpaper_kind: bank_reconciliation
+  min_items: 1
+- kind: task_state
+  task_id: tsk-kestrel-may-recon
+  status: ready_for_review
 qualitative_expectations:
   escalation_clarity:
     target: escalations
-    required_text: ["£12.40", duplicate, review]
+    required_text:
+    - £12.40
+    - duplicate
+    - review
+  summary_factuality:
+    target: final_summary
+    required_text:
+    - unresolved

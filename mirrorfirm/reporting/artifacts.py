@@ -567,7 +567,7 @@ class PublicRunConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     suite_version: Literal["mirrorfirm-wp13-v1"] = "mirrorfirm-wp13-v1"
-    scoring_version: Literal["wp09-v1"] = "wp09-v1"
+    scoring_version: Literal["wp09-v1", "wp09-v2"] = "wp09-v2"
     episode_id: str
     model_identifier: str
     world_id: str

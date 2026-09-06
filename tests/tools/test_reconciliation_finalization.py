@@ -35,6 +35,7 @@ def test_finalising_reconciliation_flags_referenced_duplicate_without_posting(
 ) -> None:
     """The derived status is transactional metadata, not a new stable tool."""
 
+    before_journals = kestrel_engine._list(Journal)
     created = _call(kestrel_engine, "create_workpaper", _kestrel_reconciliation())
     workpaper_id = created["workpaper"]["id"]
     finalized = _call(
@@ -52,11 +53,7 @@ def test_finalising_reconciliation_flags_referenced_duplicate_without_posting(
     assert workpaper.status == "final"
     assert workpaper.body.outstanding[0].ref == "doc-kestrel-outstanding-cheque"
     assert workpaper.body.unresolved[0].amount_minor == 1240
-    assert not [
-        journal
-        for journal in kestrel_engine._list(Journal)  # noqa: SLF001
-        if journal.source == "adjustment"
-    ]
+    assert kestrel_engine._list(Journal) == before_journals
     assert any(
         mutation.entity_kind == "BankTransaction"
         and mutation.entity_id == duplicate.id

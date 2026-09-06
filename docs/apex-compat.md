@@ -1,6 +1,6 @@
 # APEX-Accounting compatibility
 
-Mirror Firm can install the public APEX-Accounting development set as an external,
+Franklin & McGrath can install the public APEX-Accounting development set as an external,
 read-only pack:
 
 ```sh
@@ -17,7 +17,7 @@ APEX-Accounting is attributed to Mercor under CC BY 4.0; see the associated pape
 [arXiv:2607.27189](https://arxiv.org/abs/2607.27189). It is downloaded on demand and no
 APEX task, world file, task file, or gold answer is vendored in this repository.
 
-Each `data/dev.jsonl` source row becomes a `static_task`, not a Mirror Firm accounting
+Each `data/dev.jsonl` source row becomes a `static_task`, not a Franklin & McGrath accounting
 world. The public download stores shared assets under `world/` and task-specific assets
 under `task_files/`; these source paths are resolved through each row's
 `context_files` list. The importer records their source path, origin, and hash in the
@@ -31,12 +31,12 @@ a console deliverable. QuickBooks behaviour and Mercor's unreleased official gra
 template are not implemented; the static task uses the published rubric as binary judge
 criteria instead. Results carry the source revision and this label:
 
-> APEX-Accounting public dev set via Mirror Firm importer - external; not comparable to
+> APEX-Accounting public dev set via Franklin & McGrath importer - external; not comparable to
 > the official leaderboard
 
 The public development data includes reference answers. The installed pack is therefore
 marked `contamination: public-reference-answers` and is structurally rejected from
-Mirror Firm headline-suite aggregation. Gold outputs are not written into static episode
+Franklin & McGrath headline-suite aggregation. Gold outputs are not written into static episode
 documents or agent context. They are available only through the explicit inspection
 command:
 

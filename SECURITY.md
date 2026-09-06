@@ -2,12 +2,12 @@
 
 ## Scope and supported versions
 
-Mirror Firm is a local, synthetic evaluation environment. The supported version is the
+Franklin & McGrath is a local, synthetic evaluation environment. The supported version is the
 latest released `0.1.x` version on the default branch; older versions may not receive
 security fixes. This policy does not offer an SLA or a guarantee of suitability for
 production accounting work.
 
-Do **not** connect Mirror Firm to real client data, real ledgers, payment systems,
+Do **not** connect Franklin & McGrath to real client data, real ledgers, payment systems,
 filing systems, or professional-services workflows. Do not treat any output as
 accounting, tax, legal, or audit advice.
 
@@ -41,12 +41,14 @@ input, and accidental-leak failures—not signatures or remote attestation.
 - Agents receive typed tool schemas, not a shell or filesystem-write tool. Documents
   are data, never instructions; the harness system prompt and injection tests make that
   boundary explicit.
-- Document parsing follows the minimal sandbox pattern. `SANDBOX=podman` is expected in
-  CI where a container runtime is available (`--network=none`, dropped capabilities,
-  read-only inputs). `SANDBOX=none` is a local-development fallback, not equivalent
-  isolation.
-- Malformed calls, unknown tools, permission failures, and rejected calls are charged
-  against the episode budget and recorded as Actions.
+- The implemented parser decodes UTF-8 text fixtures. It does not parse arbitrary PDF,
+  Office, image or executable files. CI exercises the in-process text path.
+  `SANDBOX=podman` is an optional operator-supplied isolation path; the release does
+  not ship or certify its parser image. Do not describe this alpha as having an
+  exercised container parser. `SANDBOX=none` provides no process isolation.
+- Malformed and rejected calls consume the episode call budget. Calls rejected before
+  reaching the world are recorded in the harness transcript and metrics; world-level
+  execution attempts are recorded as Actions.
 
 ### Accounting and world safety
 

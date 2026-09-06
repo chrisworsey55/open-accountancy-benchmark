@@ -60,7 +60,9 @@ def _copy_malformed_world(tmp_path: Path, attack: str) -> Path:
     elif attack == "conflicting_journal_owner":
         journals = records["Journal"]
         assert isinstance(journals, list)
-        journals[0]["engagement_id"] = "eng-marlowe-bookkeeping"
+        next(
+            journal for journal in journals if journal["id"] == "jnl-cedarline-opening"
+        )["engagement_id"] = "eng-marlowe-bookkeeping"
     elif attack == "missing_approval_owner":
         approvals = records["Approval"]
         assert isinstance(approvals, list)
@@ -72,7 +74,11 @@ def _copy_malformed_world(tmp_path: Path, attack: str) -> Path:
     elif attack == "foreign_approval_owner":
         approvals = records["Approval"]
         assert isinstance(approvals, list)
-        approvals[0]["engagement_id"] = "eng-marlowe-bookkeeping"
+        next(
+            approval
+            for approval in approvals
+            if approval["id"] == "apv-cedarline-opening"
+        )["engagement_id"] = "eng-marlowe-bookkeeping"
     elif attack == "contradictory_approval_owner":
         engagements = records["Engagement"]
         approvals = records["Approval"]

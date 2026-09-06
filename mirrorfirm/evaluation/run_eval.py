@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -10,10 +11,12 @@ from mirrorfirm.core.models import (
     CriterionResult,
     EpisodeManifest,
     EvaluationResult,
+    Journal,
     Message,
     ReviewNote,
     StateSnapshot,
     Usage,
+    Workpaper,
 )
 from mirrorfirm.evaluation.deterministic import grade_registered
 from mirrorfirm.evaluation.qualitative import (
@@ -193,6 +196,36 @@ def _grade_qualitative(
         criterion.id: _targets_for(criterion.target, final, deliverables)
         for criterion in episode.qualitative_criteria
     }
+    if not isinstance(qualitative_judge, ReferenceQualitativeValidator):
+        context = json.dumps(
+            {
+                "episode_instruction": episode.instruction,
+                "observed_journals": [
+                    j.model_dump(mode="json")
+                    for j in final.list(Journal)
+                    if j.engagement_id == episode.engagement_id
+                ],
+                "observed_workpapers": [
+                    p.model_dump(mode="json")
+                    for p in final.list(Workpaper)
+                    if p.engagement_id == episode.engagement_id
+                ],
+                "declared_references": deliverables.references,
+                "declared_unresolved": deliverables.unresolved_items,
+            },
+            sort_keys=True,
+        )
+        for criterion in episode.qualitative_criteria:
+            if criterion.target == "final_summary":
+                targets[criterion.id] = [
+                    json.dumps(
+                        {
+                            "summary_to_assess": deliverables.summary,
+                            "observed_state": json.loads(context),
+                        },
+                        sort_keys=True,
+                    )
+                ]
     judged = qualitative_judge.judge_all(
         episode.qualitative_criteria, targets, judge_models
     )

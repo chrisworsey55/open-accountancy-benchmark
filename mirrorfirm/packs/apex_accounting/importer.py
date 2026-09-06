@@ -44,7 +44,7 @@ from .models import (
 APEX_ACCOUNTING_REPOSITORY: Final = "mercor/apex-accounting"
 APEX_ACCOUNTING_PACK_ID: Final = "apex-accounting"
 APEX_ACCOUNTING_LABEL: Final = (
-    "APEX-Accounting public dev set via Mirror Firm importer - external; "
+    "APEX-Accounting public dev set via Franklin & McGrath importer - external; "
     "not comparable to the official leaderboard"
 )
 APEX_ALLOWED_TOOLS: Final[tuple[str, ...]] = (
@@ -106,7 +106,7 @@ class ApexImportError(ValueError):
 
 
 class PackContaminationError(ApexImportError):
-    """A public-answer pack was offered to a headline Mirror Firm suite."""
+    """A public-answer pack was offered to a headline Franklin & McGrath suite."""
 
 
 @dataclass

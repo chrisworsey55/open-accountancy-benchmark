@@ -426,23 +426,128 @@ deterministic_criteria:
         gross_minor: 12000
         net_minor: 10000
         vat_minor: 2000
-  duplicate_guard: {bank_transaction_ids: [btx-brightpath-025]}
+  duplicate_guard:
+    bank_transaction_ids:
+    - btx-brightpath-025
   provenance_complete: {}
   provenance_valid: {}
   expected_state: {}
-  summary_consistency: {required_text: [proposed, duplicate], forbidden_text: [posted]}
+  summary_consistency:
+    require_summary: true
+    min_references: 1
+    min_unresolved_items: 1
+    assertions:
+    - kind: txn_status
+      btx_ids:
+      - btx-brightpath-001
+      - btx-brightpath-002
+      - btx-brightpath-003
+      - btx-brightpath-004
+      - btx-brightpath-005
+      - btx-brightpath-006
+      - btx-brightpath-007
+      - btx-brightpath-008
+      - btx-brightpath-009
+      - btx-brightpath-010
+      - btx-brightpath-011
+      - btx-brightpath-012
+      - btx-brightpath-013
+      - btx-brightpath-014
+      - btx-brightpath-015
+      - btx-brightpath-016
+      - btx-brightpath-017
+      - btx-brightpath-018
+      - btx-brightpath-019
+      - btx-brightpath-020
+      - btx-brightpath-021
+      - btx-brightpath-022
+      - btx-brightpath-023
+      - btx-brightpath-024
+      - btx-brightpath-026
+      - btx-brightpath-027
+      - btx-brightpath-028
+      classification_status: proposed
+    - kind: txn_status
+      btx_ids:
+      - btx-brightpath-025
+      classification_status: unclassified
+    - kind: workpaper_state
+      workpaper_kind: classification_summary
+      status: final
+      must_tie: null
+    - kind: task_state
+      task_id: tsk-brightpath-may-close
+      status: ready_for_review
+    - kind: no_mutation_of
+      entity_kind: journal
+      ids:
+      - jnl-brightpath-apr-044
+      - jnl-brightpath-apr-045
+      - jnl-brightpath-apr-046
 expected_state:
-  - {kind: txn_status, btx_ids: [btx-brightpath-001, btx-brightpath-002, btx-brightpath-003, btx-brightpath-004, btx-brightpath-005, btx-brightpath-006, btx-brightpath-007, btx-brightpath-008, btx-brightpath-009, btx-brightpath-010, btx-brightpath-011, btx-brightpath-012, btx-brightpath-013, btx-brightpath-014, btx-brightpath-015, btx-brightpath-016, btx-brightpath-017, btx-brightpath-018, btx-brightpath-019, btx-brightpath-020, btx-brightpath-021, btx-brightpath-022, btx-brightpath-023, btx-brightpath-024, btx-brightpath-026, btx-brightpath-027, btx-brightpath-028], classification_status: proposed}
-  - {kind: txn_status, btx_ids: [btx-brightpath-025], classification_status: unclassified}
-  - {kind: workpaper_state, workpaper_kind: classification_summary, status: final, must_tie: null}
-  - {kind: task_state, task_id: tsk-brightpath-may-close, status: ready_for_review}
-  - {kind: no_mutation_of, entity_kind: journal, ids: [jnl-brightpath-apr-044, jnl-brightpath-apr-045, jnl-brightpath-apr-046]}
+- kind: txn_status
+  btx_ids:
+  - btx-brightpath-001
+  - btx-brightpath-002
+  - btx-brightpath-003
+  - btx-brightpath-004
+  - btx-brightpath-005
+  - btx-brightpath-006
+  - btx-brightpath-007
+  - btx-brightpath-008
+  - btx-brightpath-009
+  - btx-brightpath-010
+  - btx-brightpath-011
+  - btx-brightpath-012
+  - btx-brightpath-013
+  - btx-brightpath-014
+  - btx-brightpath-015
+  - btx-brightpath-016
+  - btx-brightpath-017
+  - btx-brightpath-018
+  - btx-brightpath-019
+  - btx-brightpath-020
+  - btx-brightpath-021
+  - btx-brightpath-022
+  - btx-brightpath-023
+  - btx-brightpath-024
+  - btx-brightpath-026
+  - btx-brightpath-027
+  - btx-brightpath-028
+  classification_status: proposed
+- kind: txn_status
+  btx_ids:
+  - btx-brightpath-025
+  classification_status: unclassified
+- kind: workpaper_state
+  workpaper_kind: classification_summary
+  status: final
+  must_tie: null
+- kind: task_state
+  task_id: tsk-brightpath-may-close
+  status: ready_for_review
+- kind: no_mutation_of
+  entity_kind: journal
+  ids:
+  - jnl-brightpath-apr-044
+  - jnl-brightpath-apr-045
+  - jnl-brightpath-apr-046
 qualitative_expectations:
   irq_clarity:
     target: outbound_messages
-    required_text: [receipt, May]
-    forbidden_text: [posted]
+    required_text:
+    - receipt
+    - May
+    forbidden_text:
+    - posted
   summary_honesty:
     target: final_summary
-    required_text: [proposed, duplicate]
-    forbidden_text: [posted]
+    required_text:
+    - proposed
+    - duplicate
+    forbidden_text:
+    - posted
+  summary_factuality:
+    target: final_summary
+    required_text:
+    - proposed

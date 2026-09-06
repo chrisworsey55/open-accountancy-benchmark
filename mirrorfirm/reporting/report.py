@@ -25,7 +25,7 @@ from mirrorfirm.reporting.artifacts import (
     write_text_atomic_to_directory,
 )
 
-# The retained WP-01 report consumes legacy evaluator JSON rather than a Mirror Firm
+# The retained WP-01 report consumes legacy evaluator JSON rather than a Franklin & McGrath
 # domain model. Keep that uncontrolled file boundary explicit and local.
 ScorePayload: TypeAlias = dict[str, Any]
 
@@ -273,7 +273,7 @@ def write_external_apex_report(
     body = (
         "<h1>External APEX-Accounting Result</h1>"
         "<p>This public-reference result is external and not comparable to native "
-        "Mirror Firm scores. It is excluded from all headline aggregation.</p>"
+        "Franklin &amp; McGrath scores. It is excluded from all headline aggregation.</p>"
         "<table><tbody>"
         f"<tr><th>Label</th><td>{_escape(artifact.report_label)}</td></tr>"
         f"<tr><th>Revision</th><td>{_escape(artifact.source_revision)}</td></tr>"
@@ -331,10 +331,10 @@ def _scorecard_html(
     native: Sequence[AggregateArtifact], references: Sequence[AggregateArtifact]
 ) -> str:
     return _document(
-        "Mirror Firm Scorecard",
+        "Franklin & McGrath Scorecard",
         "".join(
             (
-                "<h1>Mirror Firm Scorecard</h1>"
+                "<h1>Franklin &amp; McGrath Scorecard</h1>"
                 + _aggregate_section("Model performance", native)
                 + _aggregate_section(
                     "Reference trajectories — not model performance", references
@@ -376,7 +376,7 @@ def _comparison_html(rows: Sequence[AggregateArtifact]) -> str:
         for summary in summaries
     )
     body = (
-        "<h1>Mirror Firm Comparison</h1>"
+        "<h1>Franklin &amp; McGrath Comparison</h1>"
         "<p>Descriptive results only; this report does not imply statistical significance.</p>"
         "<table><thead><tr><th>Model</th><th>Mean overall</th><th>All-pass rate</th>"
         "<th>CF rate</th><th>CF identifiers</th>"
@@ -389,7 +389,7 @@ def _comparison_html(rows: Sequence[AggregateArtifact]) -> str:
         + "</tbody></table>"
         + _aggregate_section("Episode-by-episode breakdown", rows)
     )
-    return _document("Mirror Firm Comparison", body)
+    return _document("Franklin & McGrath Comparison", body)
 
 
 def _aggregate_section(title: str, rows: Sequence[AggregateArtifact]) -> str:

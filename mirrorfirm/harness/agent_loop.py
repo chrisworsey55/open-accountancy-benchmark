@@ -3,7 +3,7 @@
 # 55510f0e609ffa5cf6f5df17d9a813ce4bb33d0c.
 # Adapted for Mirror Firm WP-08: unsafe shell/file tools remain removed; the stateful
 # executor routes only declared tools through local MCP and makes finish explicit.
-"""Provider-agnostic bounded loop for a stateful Mirror Firm episode."""
+"""Provider-agnostic bounded loop for a stateful Franklin & McGrath episode."""
 
 import time
 from pathlib import Path

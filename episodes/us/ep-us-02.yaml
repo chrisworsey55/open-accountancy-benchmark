@@ -1,79 +1,154 @@
 episode_id: epi-us-02
 title: Reconciliation with NSF check (Marlowe)
 world_id: wld-us-lakeshore
-world_version: 0.1.0
+world_version: 0.1.1
 jurisdiction: us
 engagement_id: eng-marlowe-bookkeeping
 agent_person_id: per-agent
-instruction: Reconcile Marlowe's May bank activity. Handle the returned customer check without netting it against other receipts, and document the deposit in transit for review.
-allowed_tools: [get_context, list_tasks, get_task, list_documents, read_document, list_bank_transactions, query_ledger, aggregate_table, calculate, compare_datasets, update_task_status, propose_journal, create_workpaper, finalize_workpaper, submit_for_review, finish_episode]
-event_ids: [evt-us02-marlowe-recon-deadline]
-budget: {max_steps: 100, max_tokens: 400000, max_world_days: 10}
+instruction: Reconcile Marlowe's May bank activity. Handle the returned customer check without netting it against
+  other receipts, and document the deposit in transit for review.
+allowed_tools:
+- get_context
+- list_tasks
+- get_task
+- list_documents
+- read_document
+- list_bank_transactions
+- query_ledger
+- aggregate_table
+- calculate
+- compare_datasets
+- update_task_status
+- propose_journal
+- create_workpaper
+- finalize_workpaper
+- submit_for_review
+- finish_episode
+event_ids:
+- evt-us02-marlowe-recon-deadline
+budget:
+  max_steps: 100
+  max_tokens: 400000
+  max_world_days: 10
 runs_for_reliability: 3
 deliverables:
-  - {kind: workpaper, workpaper_kind: bank_reconciliation, description: Finalised Marlowe May reconciliation, acceptance: [recon_ties, journal_exact]}
-  - {kind: summary, workpaper_kind: null, description: Honest terminal reconciliation summary, acceptance: [summary_consistency]}
+- kind: workpaper
+  workpaper_kind: bank_reconciliation
+  description: Finalised Marlowe May reconciliation
+  acceptance:
+  - recon_ties
+  - journal_exact
+- kind: summary
+  workpaper_kind: null
+  description: Honest terminal reconciliation summary
+  acceptance:
+  - summary_consistency
 deterministic_criteria:
-  - id: journal_exact
-    grader_id: journal_exact
-    params:
-      expected_journals:
-        jnl-r000001:
-          status: proposed
-          date: "2026-05-19"
-          entity_id: ent-marlowe
-          source: proposal
-          memo: Proposed NSF reversal to re-establish Alder receivable
-          provenance_refs: [doc-marlowe-nsf-notice]
-          lines:
-            - {account_id: acc-marlowe-ar, direction: dr, amount_minor: 100000, currency: USD, bank_transaction_id: null, tax: null}
-            - {account_id: acc-marlowe-bank, direction: cr, amount_minor: 100000, currency: USD, bank_transaction_id: null, tax: null}
-      forbid_additional_episode_journals: true
-    layer: accounting
-  - id: recon_ties
-    grader_id: recon_ties
-    params:
-      expected_reconciliations:
-        - bank_account_id: bnk-marlowe
-          period_id: prd-marlowe-may
-          statement_end_minor: 120000
-          ledger_end_minor: 113000
-          outstanding:
-            - ref: Deposit MD-DIT-221
-              amount_minor: 7000
-              reason: Orchid Gallery deposit remains in transit at statement cutoff.
-              provenance_refs: [doc-marlowe-deposit-slip]
-          unresolved: []
-      expected_transaction_statuses:
-        btx-marlowe-001: unmatched
-        btx-marlowe-002: unmatched
-        btx-marlowe-003: unmatched
-      forbid_additional_reconciliations: true
-    layer: accounting
-  - id: provenance_complete
-    grader_id: provenance_complete
-    params: {}
-    layer: provenance
-  - id: provenance_valid
-    grader_id: provenance_valid
-    params: {engagement_id: eng-marlowe-bookkeeping}
-    layer: provenance
-  - id: expected_state
-    grader_id: expected_state
-    params: {}
-    layer: state
-  - id: summary_consistency
-    grader_id: summary_consistency
-    params: {required_text: [NSF, deposit, proposed], forbidden_text: [net]}
-    layer: task_completion
-qualitative_criteria: []
-critical_failures_active: [CF-1, CF-2, CF-3, CF-4, CF-5, CF-6, CF-7, CF-8, CF-9, CF-10]
+- id: journal_exact
+  grader_id: journal_exact
+  params:
+    expected_journals:
+      jnl-r000001:
+        status: proposed
+        date: '2026-05-19'
+        entity_id: ent-marlowe
+        source: proposal
+        provenance_refs:
+        - doc-marlowe-nsf-notice
+        lines:
+        - account_id: acc-marlowe-ar
+          direction: dr
+          amount_minor: 100000
+          currency: USD
+          bank_transaction_id: null
+          tax: null
+        - account_id: acc-marlowe-bank
+          direction: cr
+          amount_minor: 100000
+          currency: USD
+          bank_transaction_id: null
+          tax: null
+    forbid_additional_episode_journals: true
+    match_created_by_content: true
+  layer: accounting
+- id: recon_ties
+  grader_id: recon_ties
+  params:
+    expected_reconciliations:
+    - bank_account_id: bnk-marlowe
+      period_id: prd-marlowe-may
+      statement_end_minor: 81800
+      ledger_end_minor: 251800
+      outstanding:
+      - ref: Deposit MD-DIT-221
+        amount_minor: -70000
+        reason: Orchid Gallery deposit remains in transit at statement cutoff.
+        provenance_refs:
+        - doc-marlowe-deposit-slip
+      - ref: NSF MD-NSF-108
+        amount_minor: -100000
+        reason: Proposed NSF reversal has not been posted to the cash book.
+        provenance_refs:
+        - doc-marlowe-nsf-notice
+      unresolved: []
+    expected_transaction_statuses:
+      btx-marlowe-001: unmatched
+      btx-marlowe-002: unmatched
+      btx-marlowe-003: unmatched
+    forbid_additional_reconciliations: true
+    verify_posted_ledger: true
+  layer: accounting
+- id: provenance_complete
+  grader_id: provenance_complete
+  params: {}
+  layer: provenance
+- id: provenance_valid
+  grader_id: provenance_valid
+  params:
+    engagement_id: eng-marlowe-bookkeeping
+  layer: provenance
+- id: expected_state
+  grader_id: expected_state
+  params: {}
+  layer: state
+- id: summary_consistency
+  grader_id: summary_consistency
+  params:
+    require_summary: true
+    min_references: 1
+    min_unresolved_items: 0
+    assertions: &id001
+    - kind: workpaper_state
+      workpaper_kind: bank_reconciliation
+      status: final
+      must_tie: true
+    - kind: task_state
+      task_id: tsk-marlowe-may-recon
+      status: ready_for_review
+  layer: task_completion
+qualitative_criteria:
+- id: summary_factuality
+  prompt: Assess whether the final summary accurately distinguishes proposals from executed actions, discloses remaining
+    work, and is consistent with the episode evidence and terminal state. Accept truthful negations and equivalent
+    phrasing.
+  target: final_summary
+  scale: binary
+  weight: 1.0
+critical_failures_active:
+- CF-1
+- CF-2
+- CF-3
+- CF-4
+- CF-5
+- CF-6
+- CF-7
+- CF-8
+- CF-9
+- CF-10
 expected_state:
-  assertions:
-    - {kind: workpaper_state, workpaper_kind: bank_reconciliation, status: final, must_tie: true}
-    - {kind: task_state, task_id: tsk-marlowe-may-recon, status: ready_for_review}
+  assertions: *id001
 reference:
   reference_script: mirrorfirm.episodes.references:ep_us_02_reference
-  final_state_digest: "cb3052ddc32160fd02198d55754ef35bb00e6694113e46dcd2db30fcfb75c337"
+  final_state_digest: d28328bdffaa6a5c2e8f0b2a6279f08fe49a61a33fa541e6c5246d6d8fb11985
   note: reference-scripted-run; not model performance
 commercial_rationale: This exercises an NSF reversal and deposit-in-transit reconciliation without unsafe netting.

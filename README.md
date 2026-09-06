@@ -1,6 +1,10 @@
-# Mirror Firm
+# Franklin & McGrath
 
-Mirror Firm is an open-source, deterministic synthetic accounting firm and agent-
+Open Accountancy’s **developer alpha**. Practitioner review and real-agent baselines are
+pending. Start with the scripted demo below; see [release status](docs/LAUNCH_STATUS.md)
+and [practitioner review pack](docs/PRACTITIONER_REVIEW.md).
+
+Franklin & McGrath is an open-source, deterministic synthetic accountancy firm and agent-
 evaluation environment. It evaluates whether an agent can perform recurring accounting-
 practice work safely over time: finding evidence, respecting scope and approvals,
 handling delayed replies, preserving provenance, and leaving an auditable world state.
@@ -13,7 +17,7 @@ fictional.
 
 Fixed accounting tasks can measure a final answer. They do not test whether an agent
 waits for missing evidence, avoids double counting, refuses a cross-client request,
-proposes rather than posts, or explains what remains unresolved. Mirror Firm adds a
+proposes rather than posts, or explains what remains unresolved. Franklin & McGrath adds a
 permissioned, multi-client world with a simulated clock, append-only Actions, snapshots,
 and deterministic grading around those behaviours.
 
@@ -34,7 +38,7 @@ typed local MCP tools, no telemetry, and deterministic reference trajectories.
 - Offline JSON score artifacts, HTML scorecards, compatible comparisons, and
   preflighted sequential model-matrix sweeps.
 - An optional APEX-Accounting importer for its public development set, structurally
-  separated from native Mirror Firm scoring.
+  separated from native Franklin & McGrath scoring.
 
 See [architecture](docs/architecture.md), [the MCP tool contract](docs/tool-mcp.md),
 [evaluation](docs/evaluation.md), and [the public/private boundary](docs/applied-boundary.md)
@@ -42,11 +46,17 @@ for the implementation boundaries.
 
 ## Quick start
 
-Mirror Firm requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+```sh
+git clone https://github.com/chrisworsey55/open-accountancy-benchmark.git
+cd open-accountancy-benchmark
+```
+
+Franklin & McGrath requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). The
+stable local command remains `mirror-firm`; see [legacy naming](docs/LEGACY_NAMING.md).
 
 ```sh
-git clone <your-fork-or-clone-url> mirror-firm
-cd mirror-firm
+git clone <your-fork-or-clone-url> franklin-mcgrath
+cd franklin-mcgrath
 make setup
 make docs
 make test
@@ -177,7 +187,7 @@ seven read/compute tools and an explicit console deliverable. The public develop
 set contains reference answers, so every imported result is marked
 `public-reference-answers` and appears only as:
 
-> APEX-Accounting public dev set via Mirror Firm importer - external; not comparable to the official APEX leaderboard
+> APEX-Accounting public dev set via Franklin & McGrath importer - external; not comparable to the official APEX leaderboard
 
 APEX results cannot enter native headline aggregates, comparisons, rankings, or model
 baselines. Gold output is unavailable to normal task execution and judging; the only
@@ -186,7 +196,7 @@ inspection path is the explicit `mirror-firm packs show-gold` command. Read
 
 ## Current maturity and limits
 
-Mirror Firm is an evaluation environment, not a production system. It has a deliberately
+Franklin & McGrath is an evaluation environment, not a production system. It has a deliberately
 bounded fictional domain: no payments, filings, direct ledger writes, browser, bash, or
 real integrations; it does not replace an accounting system or establish accounting,
 tax, legal, or audit advice. Qualitative judging for live models depends on the selected
@@ -201,11 +211,11 @@ before extending the project. For a new fictional jurisdiction, follow
 
 ## Attribution and licence
 
-Mirror Firm code is MIT-licensed. Original synthetic worlds and documents are CC BY 4.0.
+Franklin & McGrath code is MIT-licensed. Original synthetic worlds and documents are CC BY 4.0.
 The provider adapters, agent-loop structure, reporting shell, and sweep pattern adapt
 Harvey LAB (MIT), commit `55510f0e609ffa5cf6f5df17d9a813ce4bb33d0c`; see [NOTICE](NOTICE)
 and [the reproduced licence](LICENSES/harvey-labs.MIT.txt). APEX-Accounting attribution
 and its CC BY 4.0 terms are described in [docs/apex-compat.md](docs/apex-compat.md).
-Mirror Firm takes no code from Mercor Archipelago or private Thrive systems.
+Franklin & McGrath takes no code from Mercor Archipelago or private Thrive systems.
 
 Project and third-party mark use is described in [TRADEMARKS.md](TRADEMARKS.md).

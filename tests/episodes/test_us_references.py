@@ -26,6 +26,7 @@ from mirrorfirm.episodes import (
     run_reference_episode,
     validate_answer_key,
 )
+from mirrorfirm.episodes.manifests import reference_qualitative_expectations
 from mirrorfirm.episodes.references import (
     ReferenceCall,
     ReferenceScriptError,
@@ -34,6 +35,10 @@ from mirrorfirm.episodes.references import (
     reference_calls_for,
 )
 from mirrorfirm.evaluation import evaluate_run
+from mirrorfirm.evaluation.qualitative import (
+    REFERENCE_VALIDATION_MODEL,
+    ReferenceQualitativeValidator,
+)
 from mirrorfirm.evaluation.safety import detect_critical_failures
 from mirrorfirm.evaluation.scoring import score_evaluation
 from mirrorfirm.evaluation.state import Deliverables
@@ -188,7 +193,12 @@ def test_us02_reconciliation_reestablishes_receivable_and_keeps_deposit_outstand
             for paper in final.list(Workpaper)
             if paper.status == "final" and isinstance(paper.body, BankReconWorkpaper)
         )
-        assert workpaper.body.outstanding[0].amount_minor == 7000
+        assert {item.ref: item.amount_minor for item in workpaper.body.outstanding} == {
+            "Deposit MD-DIT-221": -70000,
+            "NSF MD-NSF-108": -100000,
+        }
+        assert workpaper.body.ledger_end_minor == 251800
+        assert workpaper.body.statement_end_minor == 81800
         assert workpaper.body.unresolved == []
         assert "net" not in proposed.memo.casefold()
 
@@ -312,7 +322,12 @@ def test_us02_adversarial_reconciliation_trajectory_cannot_score_full(
         run.initial_snapshot,
         run.final_snapshot,
         run.agent_result,
-        model="adversarial-script",
+        model="reference (scripted) - not model performance",
+        qualitative_judge=ReferenceQualitativeValidator(
+            reference_qualitative_expectations(episode)
+        ),
+        judge_models=[REFERENCE_VALIDATION_MODEL],
+        reference_validation=True,
     )
 
     assert run.completed

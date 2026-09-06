@@ -597,7 +597,7 @@ def _verify_schema(connection: sqlite3.Connection) -> None:
         or row["value"] != _SCHEMA_VERSION
         or not _REQUIRED_TABLES <= table_names
     ):
-        raise ValueError("not a compatible Mirror Firm world database")
+        raise ValueError("not a compatible Franklin & McGrath world database")
 
 
 def immutable_constraints_present(path: str | Path) -> bool:

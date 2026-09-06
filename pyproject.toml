@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mirror-firm"
-version = "0.1.0"
-description = "An open-source synthetic accounting firm and agent-evaluation environment."
+version = "0.1.1"
+description = "Franklin & McGrath: an open-source synthetic accountancy firm and agent-evaluation environment."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

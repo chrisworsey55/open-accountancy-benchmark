@@ -794,12 +794,12 @@ def _kestrel_recon_body(_: Mapping[str, JsonObject]) -> JsonObject:
             "kind": "bank_reconciliation",
             "bank_account_id": "bnk-kestrel",
             "period_id": "prd-kestrel-may",
-            "statement_end_minor": 82400,
-            "ledger_end_minor": 100000,
+            "statement_end_minor": 126040,
+            "ledger_end_minor": 107200,
             "outstanding": [
                 {
                     "ref": "doc-kestrel-outstanding-cheque",
-                    "amount_minor": -17600,
+                    "amount_minor": 17600,
                     "reason": "Cheque KC-OUT-017 remains outstanding.",
                     "provenance_refs": ["doc-kestrel-outstanding-cheque"],
                 }
@@ -1127,19 +1127,25 @@ def _marlowe_recon_body(results: Mapping[str, JsonObject]) -> JsonObject:
             "kind": "bank_reconciliation",
             "bank_account_id": _bank_account_id(results, "context"),
             "period_id": _period_id(results, "context", "in_close"),
-            "statement_end_minor": 120000,
-            "ledger_end_minor": 113000,
+            "statement_end_minor": 81800,
+            "ledger_end_minor": 251800,
             "outstanding": [
                 {
+                    "ref": "NSF MD-NSF-108",
+                    "amount_minor": -100000,
+                    "reason": "Proposed NSF reversal has not been posted to the cash book.",
+                    "provenance_refs": ["doc-marlowe-nsf-notice"],
+                },
+                {
                     "ref": "Deposit MD-DIT-221",
-                    "amount_minor": 7000,
+                    "amount_minor": -70000,
                     "reason": "Orchid Gallery deposit remains in transit at statement cutoff.",
                     "provenance_refs": [
                         _document_id(
                             results, "list_evidence", "marlowe-deposit-slip.txt"
                         )
                     ],
-                }
+                },
             ],
             "unresolved": [],
         },

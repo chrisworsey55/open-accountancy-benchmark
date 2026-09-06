@@ -1,6 +1,6 @@
 # Trademark use
 
-“Mirror Firm” and associated project names identify this open-source project. They do
+“Franklin & McGrath” and associated project names identify this open-source project. They do
 not grant permission to imply endorsement by the maintainers, General Intelligence
 Holdings (GIH), or any accounting firm. You may use the names truthfully to refer to an
 unmodified copy of this repository or to describe compatible work, but not in a way

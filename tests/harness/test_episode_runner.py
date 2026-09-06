@@ -84,7 +84,7 @@ def _episode(
         episode_id="epi-wp08-fictional",
         title="Fictional stateful harness integration",
         world_id="wld-uk-wyrley-brook",
-        world_version="0.1.0",
+        world_version="0.1.1",
         jurisdiction="uk",
         engagement_id="eng-brightpath-bookkeeping",
         agent_person_id="per-agent",

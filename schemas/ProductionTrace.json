@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "HumanEffort": {
+      "additionalProperties": false,
+      "description": "Explicit observations, never inferred from model scores or review flags.\n\nNone means not measured. Zero means a measured zero. No practitioner identity\nbelongs in this public interchange schema.",
+      "properties": {
+        "intervention_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intervention Count"
+        },
+        "measurement_method": {
+          "default": "not_measured",
+          "enum": [
+            "not_measured",
+            "observed",
+            "self_reported"
+          ],
+          "title": "Measurement Method",
+          "type": "string"
+        },
+        "review_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Minutes"
+        },
+        "rework_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rework Minutes"
+        },
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_ref": {
+          "minLength": 1,
+          "title": "Task Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_ref"
+      ],
+      "title": "HumanEffort",
+      "type": "object"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "context_ref": {
+      "minLength": 1,
+      "title": "Context Ref",
+      "type": "string"
+    },
+    "human_effort": {
+      "items": {
+        "$ref": "#/$defs/HumanEffort"
+      },
+      "title": "Human Effort",
+      "type": "array"
+    },
+    "outputs": {
+      "items": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "type": "object"
+      },
+      "title": "Outputs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "world_or_prod": {
+      "enum": [
+        "synthetic",
+        "production"
+      ],
+      "title": "World Or Prod",
+      "type": "string"
+    }
+  },
+  "required": [
+    "trace_id",
+    "context_ref",
+    "actions",
+    "outputs",
+    "world_or_prod"
+  ],
+  "title": "ProductionTrace",
+  "type": "object"
+}

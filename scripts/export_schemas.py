@@ -25,6 +25,15 @@ from mirrorfirm.core.models import (  # noqa: E402
     TaxRegistration,
     WorkpaperBody,
 )
+from mirrorfirm.learning.schemas import (  # noqa: E402
+    DifferenceRecord,
+    FailureCluster,
+    HumanEffort,
+    ImprovementTask,
+    PractitionerCorrection,
+    ProductionTrace,
+    TargetedEvalRef,
+)
 
 SCHEMA_EXPORTS: dict[str, Any] = {model.__name__: model for model in MODEL_TYPES}
 SCHEMA_EXPORTS.update(
@@ -35,6 +44,20 @@ SCHEMA_EXPORTS.update(
         "StateAssertion": StateAssertion,
         "TaxRegistration": TaxRegistration,
         "WorkpaperBody": WorkpaperBody,
+    }
+)
+SCHEMA_EXPORTS.update(
+    {
+        model.__name__: model
+        for model in (
+            DifferenceRecord,
+            FailureCluster,
+            HumanEffort,
+            ImprovementTask,
+            PractitionerCorrection,
+            ProductionTrace,
+            TargetedEvalRef,
+        )
     }
 )
 

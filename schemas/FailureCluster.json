@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cluster_id": {
+      "minLength": 1,
+      "title": "Cluster Id",
+      "type": "string"
+    },
+    "member_refs": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Member Refs",
+      "type": "array"
+    },
+    "pattern": {
+      "minLength": 1,
+      "title": "Pattern",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "validated",
+        "rejected"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cluster_id",
+    "pattern",
+    "member_refs",
+    "status"
+  ],
+  "title": "FailureCluster",
+  "type": "object"
+}

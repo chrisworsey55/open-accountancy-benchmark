@@ -262,5 +262,5 @@ class InstalledApexPack:
 
         raise PackContaminationError(
             "APEX-Accounting has public reference answers and is not eligible for "
-            "Mirror Firm headline-suite aggregation"
+            "Franklin & McGrath headline-suite aggregation"
         )

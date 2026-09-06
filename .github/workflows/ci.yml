@@ -5,14 +5,28 @@ on:
   pull_request:
 
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: 'false'
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.9.28'
       - run: make setup
       - run: uv lock --check
       - run: make fmt
@@ -21,3 +35,5 @@ jobs:
       - run: uv run mypy --config-file=/dev/null --strict mirrorfirm
       - run: make docs
       - run: make test
+      - run: make demo
+      - run: make release-check

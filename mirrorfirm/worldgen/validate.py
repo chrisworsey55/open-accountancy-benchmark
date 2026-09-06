@@ -1,4 +1,4 @@
-"""Ordered structural validation gates for compiled Mirror Firm worlds."""
+"""Ordered structural validation gates for compiled Franklin & McGrath worlds."""
 
 from __future__ import annotations
 

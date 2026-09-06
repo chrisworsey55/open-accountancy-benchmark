@@ -1,6 +1,6 @@
-# Contributing to Mirror Firm
+# Contributing to Franklin & McGrath
 
-Mirror Firm is a public synthetic evaluation environment. Contributions must preserve
+Franklin & McGrath is a public synthetic evaluation environment. Contributions must preserve
 the normative architecture in [SPEC.md](SPEC.md), use fictional data only, and include
 targeted tests. The project does not accept real client records, credentials, production
 traces, private provider prompts, or code from private systems.
