@@ -86,11 +86,17 @@ def _result(
 
 
 def _persisted_run(
-    tmp_path: Path, *, model: str = "fictional/model", failed: bool = False
+    tmp_path: Path,
+    *,
+    model: str = "fictional/model",
+    failed: bool = False,
+    evidence: str | None = None,
 ) -> tuple[Path, EvaluationResult]:
     directory = tmp_path / "run-r000001"
     directory.mkdir(parents=True)
     result = _result(model=model, failed=failed)
+    if evidence is not None:
+        result.criterion_results[0].evidence_refs = [evidence]
     completion = {
         "summary": "Fictional completion.",
         "deliverable_refs": [],
@@ -151,6 +157,15 @@ def _persisted_run(
         run_kind="scripted_reference" if scripted else "native_model",
     )
     return directory, result
+
+
+def test_structured_judge_evidence_survives_score_publication(tmp_path: Path) -> None:
+    """Unicode and JSON formatting do not invalidate an otherwise authentic score."""
+
+    evidence = {"status": "sent", "body": "Fictional £480 receipt requested."}
+    directory, _ = _persisted_run(tmp_path, evidence=json.dumps(evidence, indent=2))
+    _, restored = load_run_artifact(directory)
+    assert json.loads(restored.criterion_results[0].evidence_refs[0]) == evidence
 
 
 def test_persisted_e17_artifacts_are_atomic_canonical_and_secret_free(

@@ -1245,3 +1245,11 @@ The production learning pipeline remains private. The alpha text parser is UTF-8
 only; container parser isolation is an operator-supplied, unverified path.
 Practitioner sign-off and actual model measurements must never be inferred from
 passing controls. See docs/LAUNCH_STATUS.md for the current evidence gates.
+
+### Developer alpha follow-up — 7 September 2026
+
+Scoring revision `wp09-v3` supplies scoped task and escalation state to qualitative
+summary judges and grades only new or changed communication in the active engagement.
+Historical output cannot earn current-run communication credit. V1/V2 artifacts remain
+readable and separate. Subscription-backed Codex MCP experiments retain unranked status
+while external usage/budget enforcement and practitioner validation are incomplete.

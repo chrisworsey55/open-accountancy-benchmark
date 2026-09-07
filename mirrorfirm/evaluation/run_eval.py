@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from mirrorfirm.core.db import SQLiteWorldView
+from mirrorfirm.core.db import SQLiteWorldView, WorldView
 from mirrorfirm.core.models import (
     CriterionResult,
     EpisodeManifest,
@@ -15,6 +15,8 @@ from mirrorfirm.core.models import (
     Message,
     ReviewNote,
     StateSnapshot,
+    Task,
+    Thread,
     Usage,
     Workpaper,
 )
@@ -75,6 +77,7 @@ def evaluate_run(
             raise ValueError("reference validator is unavailable to model baselines")
         qualitative_results, judge_flags = _grade_qualitative(
             episode,
+            initial,
             final,
             deliverables,
             qualitative_judge,
@@ -183,7 +186,8 @@ def _criterion_params(
 
 def _grade_qualitative(
     episode: EpisodeManifest,
-    final: SQLiteWorldView,
+    initial: WorldView,
+    final: WorldView,
     deliverables: Deliverables,
     qualitative_judge: QualitativeJudge | ReferenceQualitativeValidator | None,
     judge_models: list[str] | None,
@@ -193,13 +197,31 @@ def _grade_qualitative(
     if qualitative_judge is None or not judge_models:
         raise ValueError("qualitative criteria require a judge and one or two models")
     targets = {
-        criterion.id: _targets_for(criterion.target, final, deliverables)
+        criterion.id: _targets_for(
+            criterion.target, initial, final, deliverables, episode
+        )
         for criterion in episode.qualitative_criteria
     }
     if not isinstance(qualitative_judge, ReferenceQualitativeValidator):
         context = json.dumps(
             {
                 "episode_instruction": episode.instruction,
+                "observed_tasks": [
+                    task.model_dump(mode="json")
+                    for task in final.list(Task)
+                    if task.engagement_id == episode.engagement_id
+                ],
+                "observed_review_notes": [
+                    note.model_dump(mode="json")
+                    for note in final.list(ReviewNote)
+                    if note.engagement_id == episode.engagement_id
+                ],
+                "observed_outbound_messages": [
+                    json.loads(record)
+                    for record in _targets_for(
+                        "outbound_messages", initial, final, deliverables, episode
+                    )
+                ],
                 "observed_journals": [
                     j.model_dump(mode="json")
                     for j in final.list(Journal)
@@ -245,16 +267,35 @@ def _grade_qualitative(
 
 
 def _targets_for(
-    target: str, final: SQLiteWorldView, deliverables: Deliverables
+    target: str,
+    initial: WorldView,
+    final: WorldView,
+    deliverables: Deliverables,
+    episode: EpisodeManifest,
 ) -> list[str]:
     if target == "outbound_messages":
+        threads = {
+            thread.id
+            for thread in final.list(Thread)
+            if thread.engagement_id == episode.engagement_id
+        }
         return [
-            message.body
+            json.dumps(
+                {"id": message.id, "status": message.status, "body": message.body}
+            )
             for message in final.list(Message)
             if message.direction == "outbound"
+            and message.thread_id in threads
+            and initial.get(Message, message.id) != message
         ]
     if target == "escalations":
-        return [note.body for note in final.list(ReviewNote)]
+        return [
+            note.body
+            for note in final.list(ReviewNote)
+            if note.engagement_id == episode.engagement_id
+            and note.author_id == episode.agent_person_id
+            and initial.get(ReviewNote, note.id) != note
+        ]
     return [deliverables.summary] if deliverables.summary is not None else []
 
 

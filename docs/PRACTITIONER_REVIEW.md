@@ -1,6 +1,7 @@
-# Practitioner review pack — 0.1.1 candidate
+# Practitioner review pack — 0.1.2 candidate
 
 Status: **pending review**. Mechanical controls pass; no professional sign-off is implied.
+World fixtures are version `0.1.1`; grading is `wp09-v3`.
 Review the episode manifest, adjacent answer key, source documents and posted journal
 records for every case. Do not use real client records in comments or replacements.
 

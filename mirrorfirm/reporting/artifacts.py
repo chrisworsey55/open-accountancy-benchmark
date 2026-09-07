@@ -567,7 +567,7 @@ class PublicRunConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     suite_version: Literal["mirrorfirm-wp13-v1"] = "mirrorfirm-wp13-v1"
-    scoring_version: Literal["wp09-v1", "wp09-v2"] = "wp09-v2"
+    scoring_version: Literal["wp09-v1", "wp09-v2", "wp09-v3"] = "wp09-v3"
     episode_id: str
     model_identifier: str
     world_id: str
@@ -980,9 +980,10 @@ def write_run_artifact(
         if not score_path.exists():
             write_scores_artifact(evaluation, score_path)
         score_bytes = _read_verified_regular_file(score_path, "scores artifact")
-        expected_score = (
-            canonical_json(_canonical_evaluation_payload(evaluation)).encode("utf-8")
-            + b"\n"
+        # Verify the same sanitized representation the score writer persists,
+        # including structured JSON carried inside qualitative evidence strings.
+        expected_score = canonical_sanitized_json(
+            _canonical_evaluation_payload(evaluation)
         )
         if score_bytes != expected_score:
             raise ResultArtifactError(
