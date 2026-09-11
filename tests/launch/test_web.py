@@ -85,8 +85,10 @@ def test_homepage_has_agreed_copy_actions_metadata_and_accessibility_landmarks()
     status, headers, body = _request(LaunchApplication(), "GET", "/")
 
     assert status == "200 OK"
-    assert "Franklin &amp; McGrath" in body
-    assert "Where AI agents prove they can do real accounting work." in body
+    assert "Open Accountancy" in body
+    assert "A synthetic accounting firm for testing AI agents." in body
+    assert "No public model ranking is available yet." in body
+    assert "1 September 2026" not in body
     assert "View the Agent League Table" in body
     assert 'meta property="og:title"' in body
     assert 'href="#content"' in body
@@ -99,7 +101,7 @@ def test_empty_leaderboard_is_truthful_and_supports_filters() -> None:
     status, _, body = _request(app, "GET", "/leaderboard")
 
     assert status == "200 OK"
-    assert "Franklin &amp; McGrath Agent League Table" in body
+    assert "Open Accountancy Agent League Table" in body
     assert "The first external agent results have not yet been published" in body
     assert "jurisdiction=uk" in body
     assert "jurisdiction=us" in body

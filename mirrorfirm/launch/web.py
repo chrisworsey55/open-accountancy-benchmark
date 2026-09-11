@@ -1,4 +1,4 @@
-"""Small dependency-free WSGI presentation for the Franklin & McGrath launch."""
+"""Small dependency-free WSGI presentation for the Open Accountancy launch."""
 
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ Status = Literal[
 
 _MAX_FORM_BYTES = 32_768
 _META_DESCRIPTION = (
-    "Franklin & McGrath is a synthetic accountancy firm and open benchmark where "
-    "AI agents prove they can perform real accounting work."
+    "Open Accountancy is a synthetic accountancy firm and open benchmark where "
+    "developers can test AI agents on fictional accounting workflows."
 )
 
 
@@ -155,7 +155,7 @@ def serve(
         results_root=results_root, leads_database=leads_database
     )
     with make_server(host, port, application) as server:
-        print(f"Franklin & McGrath launch site listening on http://{host}:{port}")
+        print(f"Open Accountancy launch site listening on http://{host}:{port}")
         server.serve_forever()
 
 
@@ -232,11 +232,11 @@ def _home_page() -> str:
     body = """
 <section class="hero" aria-labelledby="hero-title">
   <p class="eyebrow">The synthetic accountancy firm</p>
-  <h1 id="hero-title">Where AI agents prove they can do real accounting work.</h1>
+  <h1 id="hero-title">A synthetic accounting firm for testing AI agents.</h1>
   <p class="lede">We built a synthetic accountancy firm where AI agents compete to prove they can do real accounting work.</p>
-  <p>Franklin &amp; McGrath scores every agent on accuracy, evidence, safety, cost and the amount of human review still required.</p>
+  <p>Inspect accounting outcomes, evidence and safety checks. Model usage is reported where measured; accountant review effort remains unmeasured unless explicitly recorded.</p>
   <p>Developers can build against the open benchmark. Accountancy firms can register workflows they want AI to solve.</p>
-  <p>The first Franklin &amp; McGrath leaderboard opens on 1 September 2026.</p>
+  <p>Developer alpha. Practitioner review and comparable real-agent baselines are pending. No public model ranking is available yet.</p>
   <p class="actions"><a class="button" href="/leaderboard">View the Agent League Table</a><a class="button secondary" href="#developers">Build against the benchmark</a><a class="button secondary" href="#firms">Register an accounting workflow</a></p>
 </section>
 <section id="developers" aria-labelledby="developer-title">
@@ -265,7 +265,7 @@ mirror-firm list episodes --json</code></pre>
   </form>
 </section>
 """
-    return _document("Franklin & McGrath | The synthetic accountancy firm", body)
+    return _document("Open Accountancy | The synthetic accountancy firm", body)
 
 
 def _leaderboard_page(leaderboard: Leaderboard, jurisdiction: str) -> str:
@@ -278,7 +278,7 @@ def _leaderboard_page(leaderboard: Leaderboard, jurisdiction: str) -> str:
     body = f"""
 <section aria-labelledby="leaderboard-title">
   <p class="eyebrow">Public benchmark results</p>
-  <h1 id="leaderboard-title">Franklin &amp; McGrath Agent League Table</h1>
+  <h1 id="leaderboard-title">Open Accountancy Agent League Table</h1>
   <p>Higher accuracy, evidence and safety scores are better. Lower cost and human-review requirements are better. Critical failures disqualify a run from ranking.</p>
   <nav class="filters" aria-label="Filter by jurisdiction">{links}</nav>
   {_result_table(filtered.ranked, empty="The first external agent results have not yet been published. Run the benchmark or register a submission to take part.")}
@@ -289,15 +289,15 @@ def _leaderboard_page(leaderboard: Leaderboard, jurisdiction: str) -> str:
   <p><a href="/methodology">Read the leaderboard methodology</a></p>
 </section>
 """
-    return _document("Franklin & McGrath Agent League Table", body)
+    return _document("Open Accountancy Agent League Table", body)
 
 
 def _methodology_page() -> str:
     body = """
 <article aria-labelledby="methodology-title">
   <p class="eyebrow">Methodology</p>
-  <h1 id="methodology-title">How Franklin &amp; McGrath measures agent work</h1>
-  <p>Franklin &amp; McGrath is a synthetic accountancy firm: fictional clients, documents, tools and timing events let agents perform stateful accounting workflows without real client data.</p>
+  <h1 id="methodology-title">How Open Accountancy measures agent work</h1>
+  <p>Open Accountancy is a synthetic accountancy firm: fictional clients, documents, tools and timing events let agents perform stateful accounting workflows without real client data.</p>
   <h2>Workflows and scores</h2>
   <p>The UK and US episodes cover classification, evidence chases, reconciliations, approval-gated communication, VAT or sales-tax context, and cross-client confidentiality. Accuracy is the canonical accounting layer; evidence is the provenance layer; safety is the canonical safety layer. Overall score uses the benchmark’s fixed scoring formula.</p>
   <p>Cost is shown only when the run explicitly records measured provider cost; otherwise it is N/A. Accountant effort is not inferred from qualitative review flags, so human review shows <strong>N/A</strong>. Missing values are never converted to zero or a perfect result.</p>
@@ -307,7 +307,7 @@ def _methodology_page() -> str:
   <p>Scripted references exercise the benchmark infrastructure. They are always separated and labelled <strong>Reference (scripted) - not model performance</strong>; they never rank against model submissions. Developers can run the local demo, inspect the public result format, and register interest for manual inclusion review.</p>
 </article>
 """
-    return _document("Franklin & McGrath leaderboard methodology", body)
+    return _document("Open Accountancy leaderboard methodology", body)
 
 
 def _result_table(entries: tuple[LeaderboardEntry, ...], *, empty: str) -> str:
@@ -430,14 +430,14 @@ def _workflow_fields() -> str:
 
 def _privacy_copy() -> str:
     return """
-<p class="privacy">We use these details only to review this request and contact you about Franklin &amp; McGrath. Do not include real client data. Registrations are not published.</p>
+<p class="privacy">We use these details only to review this request and contact you about Open Accountancy. Do not include real client data. Registrations are not published.</p>
 <label><input type="checkbox" name="consent" value="yes" required> I agree to this use of my contact details.</label>
 """
 
 
 def _message_page(title: str, message: str) -> str:
     body = f'<section class="message"><h1>{html.escape(title)}</h1><p role="status">{html.escape(message)}</p><p><a href="/">Return to the homepage</a></p></section>'
-    return _document(f"Franklin & McGrath | {title}", body)
+    return _document(f"Open Accountancy | {title}", body)
 
 
 def _document(title: str, body: str) -> str:
@@ -447,7 +447,7 @@ def _document(title: str, body: str) -> str:
 <title>{escaped_title}</title><meta name="description" content="{html.escape(_META_DESCRIPTION)}">
 <meta property="og:title" content="{escaped_title}"><meta property="og:description" content="{html.escape(_META_DESCRIPTION)}"><meta property="og:type" content="website">
 <meta name="twitter:card" content="summary"><meta name="twitter:title" content="{escaped_title}"><meta name="twitter:description" content="{html.escape(_META_DESCRIPTION)}">
-<style>{_STYLES}</style></head><body><a class="skip" href="#content">Skip to content</a><header><a class="brand" href="/">Franklin &amp; McGrath</a><nav aria-label="Main navigation"><a href="/leaderboard">Agent League Table</a><a href="/methodology">Methodology</a></nav></header><main id="content">{body}</main><footer><p>Franklin &amp; McGrath is a synthetic accountancy firm and benchmark. It is not accounting software or professional advice.</p></footer></body></html>"""
+<style>{_STYLES}</style></head><body><a class="skip" href="#content">Skip to content</a><header><a class="brand" href="/">Open Accountancy</a><nav aria-label="Main navigation"><a href="/leaderboard">Agent League Table</a><a href="/methodology">Methodology</a></nav></header><main id="content">{body}</main><footer><p>Open Accountancy is a synthetic accountancy firm and benchmark. It is not accounting software or professional advice.</p></footer></body></html>"""
 
 
 _STYLES = """

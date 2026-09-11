@@ -15,3 +15,15 @@ The scoring principles remain public even where specific held-out cases are not.
 ## Publication audit
 
 Before any repository-visibility change, Chris must run the release gate, inspect all untracked files, verify licence/notice obligations, inspect the configured lead database is outside the repository, and conduct the required human review for accidental real-data inclusion. This task does not publish the repository, package, results, or deployment.
+
+## Launch release disposition — 11 September 2026
+
+This selected source release includes the public development cases and their answer
+keys, deterministic references, generic trace/correction schemas and development
+judges. These are not hidden evaluation assets.
+
+The existing local WSGI presentation and SQLite lead-storage helper remain public
+compatibility code. They contain no deployed database or actual applications. Live
+marketing source and lead records stay in the separate private website project.
+The local helper is not the production intake service. No real registrations, client
+exports, private app source or private evaluation packs belong in a source archive.

@@ -1,6 +1,7 @@
-# Developer alpha release status — 7 September 2026
+# Developer alpha release status — 11 September 2026
 
-The release candidate exposes fictional workflows, a scripted demo, source and contribution
+Open Accountancy (formerly Franklin & McGrath), built by General Intelligence
+Holdings, is preparing `v0.1.2-alpha.1`. The release candidate exposes fictional workflows, a scripted demo, source and contribution
 rules. It does not claim a ranked model result, practitioner endorsement, or savings.
 The dated 1 September documents are historical planning records, not launch approval.
 
@@ -17,7 +18,8 @@ The dated 1 September documents are historical planning records, not launch appr
 - Real-agent experiments: use the existing ChatGPT subscription through Codex CLI; no paid API calls are authorised for this release.
 - Ranked real-agent baselines: pending practitioner-reviewed scoring freeze and verified comparable execution conditions.
 - Browser QA: developer links, mobile navigation/replay, and fictional contact submission verified on the live website.
-- Domain activation: pending GoDaddy sign-in; the generated Sites address is live.
+- Domain activation and partner intake: check the live website at launch time;
+  the source release does not establish website or customer-onboarding readiness.
 
 ## Real-agent baselines
 

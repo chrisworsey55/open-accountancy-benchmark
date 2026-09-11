@@ -1,11 +1,12 @@
-# Franklin & McGrath
+# Open Accountancy
 
-Open Accountancy’s **developer alpha**. Practitioner review and real-agent baselines are
+**Built by General Intelligence Holdings. Developer alpha.** Practitioner review and real-agent baselines are
 pending. Start with the scripted demo below; see [release status](docs/LAUNCH_STATUS.md)
 and [practitioner review pack](docs/PRACTITIONER_REVIEW.md).
 
-Franklin & McGrath is an open-source, deterministic synthetic accountancy firm and agent-
-evaluation environment. It evaluates whether an agent can perform recurring accounting-
+Open Accountancy is a synthetic accounting firm for testing AI agents. This selected
+open-source release provides a deterministic world and agent-evaluation environment.
+The project was formerly called **Franklin & McGrath**. It evaluates whether an agent can perform recurring accounting-
 practice work safely over time: finding evidence, respecting scope and approvals,
 handling delayed replies, preserving provenance, and leaving an auditable world state.
 
@@ -17,7 +18,7 @@ fictional.
 
 Fixed accounting tasks can measure a final answer. They do not test whether an agent
 waits for missing evidence, avoids double counting, refuses a cross-client request,
-proposes rather than posts, or explains what remains unresolved. Franklin & McGrath adds a
+proposes rather than posts, or explains what remains unresolved. Open Accountancy adds a
 permissioned, multi-client world with a simulated clock, append-only Actions, snapshots,
 and deterministic grading around those behaviours.
 
@@ -47,16 +48,14 @@ for the implementation boundaries.
 ## Quick start
 
 ```sh
-git clone https://github.com/chrisworsey55/open-accountancy-benchmark.git
+git clone --branch v0.1.2-alpha.1 https://github.com/chrisworsey55/open-accountancy-benchmark.git
 cd open-accountancy-benchmark
 ```
 
-Franklin & McGrath requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). The
+Open Accountancy requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). The
 stable local command remains `mirror-firm`; see [legacy naming](docs/LEGACY_NAMING.md).
 
 ```sh
-git clone <your-fork-or-clone-url> franklin-mcgrath
-cd franklin-mcgrath
 make setup
 make docs
 make test
@@ -126,8 +125,8 @@ repository file. See [running models](docs/running-models.md).
 |  | EP-US-02 reconciliation with NSF | AR reversal, deposit in transit, exact reconciliation semantics |
 |  | EP-US-03 cross-client refusal | engagement isolation, safe refusal, and escalation |
 
-The reference scripts are evaluator fixtures, not hidden data available to an evaluated
-agent. The agent sees only the episode instruction, allowed tools, and tool results.
+These are **public development cases**, with publicly accessible answer keys and
+reference scripts. They are not secret holdouts. In a normal benchmark session, the agent sees only the episode instruction, allowed tools, and tool results.
 Answer keys are used after scripted reference execution for validation; they are not
 placed into model messages, MCP schemas, ordinary tool results, or reports.
 
@@ -196,7 +195,7 @@ inspection path is the explicit `mirror-firm packs show-gold` command. Read
 
 ## Current maturity and limits
 
-Franklin & McGrath is an evaluation environment, not a production system. It has a deliberately
+Open Accountancy is an evaluation environment, not a production system. It has a deliberately
 bounded fictional domain: no payments, filings, direct ledger writes, browser, bash, or
 real integrations; it does not replace an accounting system or establish accounting,
 tax, legal, or audit advice. Qualitative judging for live models depends on the selected
@@ -211,11 +210,19 @@ before extending the project. For a new fictional jurisdiction, follow
 
 ## Attribution and licence
 
-Franklin & McGrath code is MIT-licensed. Original synthetic worlds and documents are CC BY 4.0.
+Open Accountancy code is MIT-licensed. Original synthetic worlds and documents are CC BY 4.0.
 The provider adapters, agent-loop structure, reporting shell, and sweep pattern adapt
 Harvey LAB (MIT), commit `55510f0e609ffa5cf6f5df17d9a813ce4bb33d0c`; see [NOTICE](NOTICE)
 and [the reproduced licence](LICENSES/harvey-labs.MIT.txt). APEX-Accounting attribution
 and its CC BY 4.0 terms are described in [docs/apex-compat.md](docs/apex-compat.md).
-Franklin & McGrath takes no code from Mercor Archipelago or private Thrive systems.
+Open Accountancy takes no code from Mercor Archipelago or private Thrive systems.
 
 Project and third-party mark use is described in [TRADEMARKS.md](TRADEMARKS.md).
+
+## For accounting firms
+
+We’re working with select UK and US partners to rebuild their entire firm around AI,
+workflow by workflow. [Explore Open Accountancy and apply](https://openaccountancy.ai/).
+Partner implementations, real client records, production traces and private evaluation
+cases are separate from this public repository. The initial application requests process
+descriptions, not client files.

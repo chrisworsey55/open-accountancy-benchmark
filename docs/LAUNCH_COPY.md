@@ -1,28 +1,19 @@
-# Franklin & McGrath launch copy
+# Open Accountancy launch copy
 
-## Developer alpha
+**Developer alpha · Built by General Intelligence Holdings.**
 
-We’re opening Franklin & McGrath, Open Accountancy’s fictional accounting benchmark.
-Seven UK and US workflows give agents a ledger, source evidence, approval gates and work
-to complete. Download the source, run the credential-free scripted demo, and inspect
-exactly how the outcome is graded.
+Meet Open Accountancy: a synthetic accounting firm for testing AI agents.
+Explore five fictional clients and seven prepared UK and US workflows, from
+bookkeeping and reconciliation to client chasing and evidence collection.
+Connect an agent, test the work and follow the evidence.
 
-We want contributions that make the test harder to fool: accounting corrections,
-equivalent valid answers, new failure cases and reproducible agent integrations.
+Selected synthetic worlds, tools and evaluation code are open source. Real firm
+data, partner implementations and the production learning system remain private.
 
-Practitioner review and comparable real-agent baselines are pending. The scripted
-controls test the machinery; they are not model performance or accountant time savings.
+We’re working with select UK and US partners to rebuild their entire firm around AI.
+Apply to become a partner at https://openaccountancy.ai/.
 
-## Contribution invitation
-
-For developers: run a fictional workflow, inspect the evidence, connect an agent and
-submit a minimal reproduction or complete run record through the repository.
-
-For practitioners: review the expected answers or help specify a fictional workflow.
-For firms: discuss a supervised design partnership through the website.
-
-## Results campaign (held until evidence exists)
-
-After practitioner review and a frozen scoring revision, publish all comparable
-five-run baselines, failures and configuration details. Write the announcement around
-measured findings; do not populate it with invented scores or an obsolete launch date.
+Practitioner review and comparable real-agent baselines are pending. The recorded
+reference follows a script and is not evidence of model performance or savings.
+No public model ranking is announced. Do not publish a launch date without checking
+that the branded domain, application form and pinned download are working.
